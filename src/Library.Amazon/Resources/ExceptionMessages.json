@@ -1,0 +1,19 @@
+{
+    "ObjectDisposedException": "Cannot perform operations with a disposed {0}.",
+
+    // SQS Queue Manager
+    "SqsQueueManager:QueueExistsAsync:HttpRequestException": "Response indicates that the queue manager failed to get the URL for the \"{2}\" queue: {0} ({1}).",
+    "SqsQueueManager:CreateQueueAsync:HttpRequestException": "Response indicates that the queue manager failed to create a \"{2}\" queue: {0} ({1}).",
+    "SqsQueueManager:DeleteQueueAsync:HttpRequestException": "Response indicates that the queue manager failed to delete the \"{2}\" queue: {0} ({1}).",
+    "SqsQueueManager:PurgeQueueAsync:HttpRequestException": "Response indicates that the queue manager failed to purge the \"{2}\" queue: {0} ({1}).",
+    "SqsQueueManager:ListQueuesAsync:HttpRequestException": "Response indicates that the queue manager failed to obtain a list of existing queues: {0} ({1}).",
+    "SqsQueueManager:GetQueueUrlAsync:HttpRequestException": "Response indicates that the queue manager failed to get the URL for the \"{2}\" queue: {0} ({1}).",
+
+    // S3 Storage Manager
+    "S3StorageManager:StorageExistsAsync:HttpRequestException": "---------",
+    "S3StorageManager:CreateStorageAsync:HttpRequestException": "Response indicates that the storage manager failed to create a \"{2}\" bucket: {0} ({1}).",
+    "S3StorageManager:DeleteStorageAsync:HttpRequestException": "Response indicates that the storage manager failed to delete the \"{2}\" bucket: {0} ({1}).",
+    "S3StorageManager:PurgeStorageAsync_DeleteObject:HttpRequestException": "Response indicates that the storage manager failed to delete an object in an effort to purge the \"{2}\" bucket: {0} ({1}).",
+    "S3StorageManager:PurgeStorageAsync_ListObjects:HttpRequestException": "Response indicates that the storage manager failed to obtain a list of existing objects in an effort to purge the \"{2}\" bucket: {0} ({1}).",
+    "S3StorageManager:ListStoragesAsync:HttpRequestException": "Response indicates that the storage manager failed to obtain a list of existing buckets: {0} ({1})."
+}

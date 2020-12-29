@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 
 namespace Libraries.AspNetCore.Extensions
 {
@@ -23,7 +24,7 @@ namespace Libraries.AspNetCore.Extensions
         }.ToLookup(p => p.ImageFormat, p => p.ContentType);
 
         public static IActionResult Image(this ControllerBase controller, Image image)
-        {
+        {Host.CreateDefaultBuilder().UseEnvironment()
             if (image == null) throw new ArgumentNullException(nameof(image));
 
             var contentType = _contentTypes[image.RawFormat].FirstOrDefault();
