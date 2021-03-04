@@ -8,7 +8,7 @@ namespace Library.Amazon
 {
     public class SqsQueueClientConfiguration
     {
-        public string QueueName { get; set; }
+        public string QueueUrl { get; set; }
         public int ReceiveWaitTimeSeconds { get; set; } = 5;
         public int ReceiveVisibilityTimeout { get; set; } = 10;
     }

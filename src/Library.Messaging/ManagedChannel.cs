@@ -11,10 +11,10 @@ namespace Library.Messaging
     {
         protected Channel<TMessage> Channel { get; }
 
-        public ManagedChannel(int capacity)
+        public ManagedChannel(ManagedChannelConfiguration configuration)
         {
-            Capacity = capacity;
-            Channel = System.Threading.Channels.Channel.CreateBounded<TMessage>(capacity);
+            Capacity = configuration.Capacity;
+            Channel = System.Threading.Channels.Channel.CreateBounded<TMessage>(configuration.Capacity);
             Reader = Channel.Reader;
             Writer = Channel.Writer;
         }
@@ -22,5 +22,10 @@ namespace Library.Messaging
         public int Capacity { get; }
 
         public int Count => Reader.Count;
+    }
+
+    public class ManagedChannelConfiguration
+    {
+        public int Capacity { get; set; }
     }
 }

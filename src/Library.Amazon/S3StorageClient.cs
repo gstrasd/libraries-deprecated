@@ -18,7 +18,7 @@ using Amazon.S3.Transfer;
 using Amazon.S3.Util;
 using Library.Amazon.Resources;
 using Library.Http;
-using Library.Storage;
+using Library.Platform.Storage;
 
 namespace Library.Amazon
 {
@@ -26,13 +26,7 @@ namespace Library.Amazon
     {
         private readonly IAmazonS3 _client;
         private readonly S3StorageClientConfiguration _configuration;
-        private bool _initialized;
         private bool _disposed;
-
-        public S3StorageClient(IAmazonS3 client, string bucketName) 
-            : this(client, new S3StorageClientConfiguration {BucketName = bucketName})
-        {
-        }
 
         public S3StorageClient(IAmazonS3 client, S3StorageClientConfiguration configuration)
         {
@@ -50,9 +44,11 @@ namespace Library.Amazon
             Dispose(false);
         }
 
+        public string StorageName => _configuration.BucketName;
+
         public async Task<bool> ObjectExistsAsync(string scope, string name, CancellationToken token = default)
         {
-            await EnsureInitializedAsync(token);
+            EnsureNotDisposed();
 
             var key = BuildKey(scope, name);
             var request = new ListObjectsV2Request
@@ -72,8 +68,7 @@ namespace Library.Amazon
 
         public async Task<bool> ScopeExistsAsync(string scope, CancellationToken token = default)
         {
-            await EnsureInitializedAsync(token);
-
+            EnsureNotDisposed();
             NormalizeScope(ref scope);
 
             var request = new ListObjectsV2Request
@@ -85,22 +80,21 @@ namespace Library.Amazon
             var response = await _client.ListObjectsV2Async(request, token);
             if (!response.HttpStatusCode.IsSuccess())
             {
-                throw new HttpRequestException($"Response status code {(int)response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to determine if the given \"{scope}\" scope in the \"{_configuration.BucketName}\" bucket exists.");
+                throw new HttpRequestException($"Response status code {(int)response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to determine if the given \"{scope}\" storage in the \"{_configuration.BucketName}\" bucket exists.");
             }
 
             return response.KeyCount > 0;
         }
 
-        public async IAsyncEnumerable<(string Scope, string Name)> ListObjectsAsync(string scope, [EnumeratorCancellation] CancellationToken token = default)
+        public async IAsyncEnumerable<(string Scope, string Name)> ListObjectsAsync(string storage, [EnumeratorCancellation] CancellationToken token = default)
         {
-            await EnsureInitializedAsync(token);
-
-            NormalizeScope(ref scope);
+            EnsureNotDisposed();
+            NormalizeScope(ref storage);
 
             var request = new ListObjectsV2Request
             {
                 BucketName = _configuration.BucketName,
-                Prefix = scope,
+                Prefix = storage,
             };
 
             ListObjectsV2Response response;
@@ -109,7 +103,7 @@ namespace Library.Amazon
                 response = await _client.ListObjectsV2Async(request, token);
                 if (!response.HttpStatusCode.IsSuccess())
                 {
-                    throw new HttpRequestException($"Response status code {(int) response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to retrieve a list of objects with the given \"{scope}\" scope in the \"{_configuration.BucketName}\" bucket.");
+                    throw new HttpRequestException($"Response status code {(int) response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to retrieve a list of objects with the given \"{storage}\" storage in the \"{_configuration.BucketName}\" bucket.");
                 }
                 
                 foreach (var s3Object in response.S3Objects)
@@ -125,6 +119,8 @@ namespace Library.Amazon
 
         public async IAsyncEnumerable<string> ListScopesAsync([EnumeratorCancellation] CancellationToken token = default)
         {
+            EnsureNotDisposed();
+
             var scopes = new List<string>(1000);
             var objects = ListObjectsAsync(String.Empty, token);
 
@@ -142,16 +138,19 @@ namespace Library.Amazon
             }
         }
 
-        public async IAsyncEnumerable<(Stream Value, IList<KeyValuePair<string, string>> Metadata)> LoadObjectsAsync(string scope, [EnumeratorCancellation] CancellationToken token = default)
+        public async IAsyncEnumerable<(string Scope, string Name, Stream Value, IList<KeyValuePair<string, string>> Metadata)> LoadObjectsAsync(string scope, [EnumeratorCancellation] CancellationToken token = default)
         {
-            await EnsureInitializedAsync(token);
+            EnsureNotDisposed();
 
-            var block = new TransformBlock<(string Scope, string Name), (Stream Value, IList<KeyValuePair<string, string>> Metadata)>(
-                o => LoadObjectAsync<Stream>(o.Scope, o.Name, token)
-            );
+            var block = new TransformBlock<(string Scope, string Name), (string Scope, string Name, Stream Value, IList<KeyValuePair<string, string>> Metadata)>(
+                async o =>
+                {
+                    var (value, metadata) = await LoadObjectAsync<Stream>(o.Scope, o.Name, token);
+                    return (o.Scope, o.Name, value, metadata);
+                });
             var objects = ListObjectsAsync(scope, token);
 
-            await foreach (var @object in objects.WithCancellation(token)) block.Post(@object);
+            await foreach (var @object in objects.WithCancellation(token)) await block.SendAsync(@object, token);
             block.Complete();
 
             while (await block.OutputAvailableAsync(token))
@@ -164,7 +163,7 @@ namespace Library.Amazon
 
         public async Task<(T Value, IList<KeyValuePair<string, string>> Metadata)> LoadObjectAsync<T>(string scope, string name, CancellationToken token = default)
         {
-            await EnsureInitializedAsync(token);
+            EnsureNotDisposed();
 
             if (name == null) throw new ArgumentNullException(nameof(name));
 
@@ -172,18 +171,28 @@ namespace Library.Amazon
             if (name.Length == 0) throw new ArgumentException("No name was specified.", nameof(name));
 
             var key = BuildKey(scope, name);
+
             var request = new GetObjectRequest
             {
                 BucketName = _configuration.BucketName,
-                Key = key
+                Key = key,
             };
 
-            var response = await _client.GetObjectAsync(request, token);
+            GetObjectResponse response = null;
+            try
+            {
+                response = await _client.GetObjectAsync(request, token);
+            }
+            catch (Exception e)
+            {
+                return default;
+            }
+
             if (!response.HttpStatusCode.IsSuccess())
             {
                 throw new HttpRequestException($"Response status code {(int)response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to load an object with the given \"{key}\" key in the \"{_configuration.BucketName}\" bucket.");
             }
-
+            
             var metadata = response.Metadata?.Keys.Select(key => new KeyValuePair<string, string>(key, response.Metadata[key])).ToList() ?? new List<KeyValuePair<string, string>>();
 
             var targetType = typeof(T);
@@ -205,7 +214,7 @@ namespace Library.Amazon
 
         public async Task SaveObjectAsync<T>(string scope, string name, T value, List<KeyValuePair<string, string>> metadata = default, CancellationToken token = default)
         {
-            await EnsureInitializedAsync(token);
+            EnsureNotDisposed();
 
             if (name == null) throw new ArgumentNullException(nameof(name));
 
@@ -228,7 +237,7 @@ namespace Library.Amazon
                 request.AutoCloseStream = false;
                 request.AutoResetStreamPosition = true;
                 var extension = key[key.LastIndexOf('.')..];
-                request.ContentType = MimeTypes.ByExtension[extension].FirstOrDefault().ContentType ?? "application/octet-stream";
+                request.ContentType = MimeTypes.ByExtension[extension].FirstOrDefault()?.ContentType ?? "application/octet-stream";
                 request.Metadata.Add("Extension", extension);
             }
             else
@@ -250,7 +259,7 @@ namespace Library.Amazon
 
         public async Task DeleteObjectAsync(string scope, string name, CancellationToken token = default)
         {
-            await EnsureInitializedAsync(token);
+            EnsureNotDisposed();
 
             if (name == null) throw new ArgumentNullException(nameof(name));
 
@@ -273,12 +282,12 @@ namespace Library.Amazon
 
         public async Task PurgeScopeAsync(string scope, CancellationToken token = default)
         {
-            await EnsureInitializedAsync(token);
+            EnsureNotDisposed();
 
             var block = new ActionBlock<(string Scope, string Name)>(async o => await DeleteObjectAsync(o.Scope, o.Name, token));
             var objects = ListObjectsAsync(scope, token);
 
-            await foreach (var @object in objects.WithCancellation(token)) block.Post(@object);
+            await foreach (var @object in objects.WithCancellation(token)) await block.SendAsync(@object, token);
             block.Complete();
             await block.Completion;
         }
@@ -303,21 +312,9 @@ namespace Library.Amazon
             GC.SuppressFinalize(this);
         }
 
-        private async Task EnsureInitializedAsync(CancellationToken token = default)
+        private void EnsureNotDisposed()
         {
-            if (_disposed) ExceptionHelper.ThrowDisposed(nameof(S3StorageClass));
-            if (_initialized) return;
-
-            var manager = new S3StorageManager(_client);
-            var exists = await manager.StorageExistsAsync(_configuration.BucketName, token);
-            if (exists)
-            {
-                _initialized = true;
-                return;
-            }
-
-            await manager.CreateStorageAsync(_configuration.BucketName, token);
-            _initialized = true;
+            if (_disposed) ExceptionHelper.ThrowDisposed(nameof(S3StorageClient));
         }
 
         private void Dispose(bool disposing)

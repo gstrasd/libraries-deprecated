@@ -1,0 +1,5 @@
+{
+    "ObjectDisposedException": "Cannot perform operations with a disposed {0}.",
+    "MustBePositive": "Argument must be a positive value.",
+    "MustBeGreaterThanZero": "Argument must be a value greater than zero."
+}

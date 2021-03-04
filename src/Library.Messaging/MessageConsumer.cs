@@ -25,7 +25,16 @@ namespace Library.Messaging
             {
                 await Channel.Reader.WaitToReadAsync(token);
                 var message = await Channel.Reader.ReadAsync(token);
-                await ProcessAsync(message, token);
+                try
+                {
+                    await ProcessAsync(message, token);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
+                
                 processed++;
             }
 

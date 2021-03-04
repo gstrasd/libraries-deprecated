@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Library.Messaging
 {
-    public abstract class MessageProducer<TMessage>
+    public abstract class MessageProducer<TMessage> where TMessage : new()
     {
         protected ManagedChannel<TMessage> Channel { get; }
 
@@ -24,7 +24,7 @@ namespace Library.Messaging
             while (!token.IsCancellationRequested)
             {
                 var messages = ProduceMessagesAsync(token);
-                await foreach (var message in messages)
+                await foreach (var message in messages.WithCancellation(token))
                 {
                     // Stop writing to the channel if a cancellation has been requested.
                     if (token.IsCancellationRequested)

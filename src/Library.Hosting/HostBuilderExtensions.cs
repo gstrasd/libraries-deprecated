@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
-using Library.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -14,18 +15,13 @@ namespace Library.Hosting
 {
     public static class HostBuilderExtensions
     {
-        public static IHostBuilder UseDefaultHostConfiguration(this IHostBuilder builder)
+        public static IHostBuilder UseMinimumConfiguration(this IHostBuilder builder)
         {
             builder.ConfigureHostConfiguration(configurationBuilder =>
             {
                 configurationBuilder.AddEnvironmentVariables("DOTNET_");
             });
 
-            return builder;
-        }
-
-        public static IHostBuilder UseDefaultAppConfiguration(this IHostBuilder builder)
-        {
             builder.ConfigureAppConfiguration((context, configuration) =>
             {
                 configuration
@@ -33,6 +29,44 @@ namespace Library.Hosting
                     .AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", false)
                     .AddEnvironmentVariables();
             });
+
+            return builder;
+        }
+
+        public static IHostBuilder UseDefaultConfiguration(this IHostBuilder builder)
+        {
+            builder
+                .UseContentRoot(Directory.GetCurrentDirectory())
+                .ConfigureHostConfiguration(configurationBuilder =>
+                {
+                    configurationBuilder.AddEnvironmentVariables("DOTNET_");
+                })
+                .ConfigureAppConfiguration((context, configuration) =>
+                {
+                    var env = context.HostingEnvironment;
+                    var reloadOnChange = context.Configuration.GetValue("hostBuilder:reloadConfigOnChange", true);
+
+                    configuration
+                        .AddJsonFile("appsettings.json", optional: false, reloadOnChange)
+                        .AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", optional: false, reloadOnChange);
+
+                    if (env.IsDevelopment() && !string.IsNullOrEmpty(env.ApplicationName))
+                    {
+                        var appAssembly = Assembly.Load(new AssemblyName(env.ApplicationName));
+                        if (appAssembly != null)
+                        {
+                            configuration.AddUserSecrets(appAssembly, optional: true);
+                        }
+                    }
+
+                    configuration.AddEnvironmentVariables();
+                })
+                .UseDefaultServiceProvider((context, options) =>
+                {
+                    var isDevelopment = context.HostingEnvironment.IsDevelopment();
+                    options.ValidateScopes = isDevelopment;
+                    options.ValidateOnBuild = isDevelopment;
+                });
 
             return builder;
         }
