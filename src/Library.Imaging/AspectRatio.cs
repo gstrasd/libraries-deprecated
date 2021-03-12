@@ -7,7 +7,7 @@ using OpenCvSharp;
 
 namespace Library.Imaging
 {
-    public struct AspectRatio
+    public readonly struct AspectRatio
     {
         public AspectRatio(int width, int height)
         {

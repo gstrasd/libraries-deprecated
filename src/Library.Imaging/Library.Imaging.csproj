@@ -20,4 +20,10 @@
     <Folder Include="data\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="data\haarcascades\haarcascade_frontalface_default.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

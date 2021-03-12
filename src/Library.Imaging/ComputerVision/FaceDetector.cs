@@ -7,10 +7,33 @@ using System.Threading.Tasks;
 using Library.Imaging.Extensions;
 using OpenCvSharp;
 
-namespace Library.Imaging
+namespace Library.Imaging.ComputerVision
 {
     public class FaceDetector : ImageDetector
     {
+        public int solution(string s)
+        {
+            var count = 0;
+            var word = "BALLOON";
+            var array = s.ToCharArray();
+
+            while (true)
+            {
+                foreach (char letter in word)
+                {
+                    var index = s.IndexOf(letter);
+                    if (index < 0) return count;
+                    array[index] = '\0';
+                    array = array.Where(c => c > '\0').Select(c => c).ToArray();
+                    s = new String(array);
+                }
+
+                count++;
+            }
+        }
+
+        private static readonly SemaphoreSlim _detect = new SemaphoreSlim(1, 1);
+
         public FaceDetector() : base(@"\data\haarcascades\haarcascade_frontalface_default.xml")
         {
         }
@@ -38,20 +61,29 @@ namespace Library.Imaging
             var faces = await Task<Rect[]>.Factory.StartNew(
                 () =>
                 {
-                    lock (this)     // TODO: This does not appear to be thread-safe. Concurrent invocations lead to memory access violation exceptions. Find a way around this.
+                    _detect.Wait(token);    // TODO: This does not appear to be thread-safe. Concurrent invocations lead to memory access violation exceptions. Find a way around this.
+
+                    try
                     {
                         return Classifier.DetectMultiScale(grayscale, 1.1d, 3, HaarDetectionTypes.DoCannyPruning, new Size(minSize, minSize));
+                    }
+                    finally
+                    {
+                        _detect.Release();
                     }
                 },
                 token,
                 TaskCreationOptions.LongRunning | TaskCreationOptions.RunContinuationsAsynchronously,
                 TaskScheduler.Default);
 
-            if (!portrait || image.Width >= 400) return faces.ToList();
+            // Return largest faces first
+            var sortedFaces = faces.OrderByDescending(f => f.Width * f.Height).ToList();
+
+            if (!portrait || image.Width >= 400) return sortedFaces;
 
             // The faces in portrait photos tend to be located near the top.
             // So, assume a face detection below the the center on a lower resolution photo is erroneous.
-            return faces.Where(rect => rect.Top <= image.Height / 2).ToList();
+            return sortedFaces.Where(rect => rect.Top <= image.Height / 2).ToList();
         }
     }
 }

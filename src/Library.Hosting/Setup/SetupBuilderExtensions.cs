@@ -17,10 +17,20 @@ namespace Library.Hosting.Setup
                 containerBuilder.Register(c => new Setup(c.Resolve<IEnumerable<ISetupStep>>())).As<ISetup>();
             });
 
+            builder.ConfigureSetup((context, configurationBuilder) =>
+            {
+                configurationBuilder.AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    {"ApplicationName", context.HostingEnvironment.ApplicationName},
+                    {"ContentRootPath", context.HostingEnvironment.ContentRootPath},
+                    {"EnvironmentName", context.HostingEnvironment.EnvironmentName}
+                });
+            });
+
             return builder;
         }
 
-        public static ISetupBuilder UseAppConfiguration(this ISetupBuilder builder)
+        public static ISetupBuilder UseAppSettings(this ISetupBuilder builder)
         {
             builder.ConfigureSetup((context, configurationBuilder) =>
             {

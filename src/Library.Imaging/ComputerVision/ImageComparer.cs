@@ -1,20 +1,15 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Library.Imaging.Extensions;
 using OpenCvSharp;
 using OpenCvSharp.Features2D;
 using OpenCvSharp.Flann;
 
-namespace Library.Imaging
+namespace Library.Imaging.ComputerVision
 {
     public class ImageComparer : IDisposable
     {

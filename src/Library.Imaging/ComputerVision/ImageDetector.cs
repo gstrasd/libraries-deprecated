@@ -5,14 +5,12 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Serialization;
 using OpenCvSharp;
 
-namespace Library.Imaging
+namespace Library.Imaging.ComputerVision
 {
     public abstract class ImageDetector : IDisposable
     {
@@ -24,25 +22,13 @@ namespace Library.Imaging
 
             if (!Path.IsPathFullyQualified(filename))
             {
-                var path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+                var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 filename = Path.Join(path, filename);
             }
 
             if (!File.Exists(filename)) throw new FileNotFoundException("Cascade classifier file not found.", filename);
 
-            Classifier = Task<CascadeClassifier>.Factory.StartNew(() =>
-                {
-                    try
-                    {
-                        return new CascadeClassifier(filename);
-                    }
-                    catch (Exception e)
-                    {
-                        throw new InvalidOperationException("The cascade classifier could not be loaded. See inner exception for further details.", e);
-                    }
-                })
-                .GetAwaiter()
-                .GetResult();
+            Classifier = new CascadeClassifier(filename);
         }
 
         protected ImageDetector(CascadeClassifier classifier)
@@ -94,7 +80,7 @@ namespace Library.Imaging
 
         private void EnsureNotDisposed()
         {
-            if (_disposed) throw new ObjectDisposedException($"Cannot perform operations on a disposed {nameof(ImageComparer)}.");
+            if (_disposed) throw new ObjectDisposedException($"Cannot perform operations on a disposed {nameof(ImageDetector)}.");
             if (Classifier.IsDisposed) throw new ObjectDisposedException($"Cannot perform operations on a disposed {nameof(CascadeClassifier)}.");
         }
     }

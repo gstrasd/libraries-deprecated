@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing.Imaging;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using OpenCvSharp;
 
-namespace Library.Imaging
+namespace Library.Imaging.ComputerVision
 {
     public class ImageFeatures
     {

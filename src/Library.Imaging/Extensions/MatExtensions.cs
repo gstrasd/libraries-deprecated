@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Library.Imaging.ComputerVision;
 using OpenCvSharp;
 using Bitmap = System.Drawing.Bitmap ;
 
@@ -21,14 +22,13 @@ namespace Library.Imaging.Extensions
 
         public static float GetAspectRatio(this Mat image) => image.Width / (float)image.Height;
 
-        public static Stream ToStream(this Mat image, OpenCvImageFormat format)
+        public static Stream ToStream(this Mat image, string extensionOrMediaType)
         {
             if (image == null) throw new ArgumentNullException(nameof(image));
-            if (!Enum.IsDefined(typeof(OpenCvImageFormat), format)) throw new InvalidEnumArgumentException(nameof(format), (int) format, typeof(OpenCvImageFormat));
+            if (extensionOrMediaType == null) throw new ArgumentNullException(nameof(extensionOrMediaType));
+            if (!ContentType.TryParse(extensionOrMediaType, out var contentType)) throw new ArgumentException($"The extension or media type {extensionOrMediaType} is either not recognized or not supported.", nameof(extensionOrMediaType));
 
-            var extension = new OpenCvContentType(format).Extension;
-
-            return image.ToMemoryStream(extension);
+            return image.ToMemoryStream(contentType.Extension);
         }
 
         public static Mat ToGrayscale(this Mat image)
@@ -41,7 +41,7 @@ namespace Library.Imaging.Extensions
             return grayscale;
         }
 
-        public static Mat To8BitBrg(this Mat image)
+        public static Mat To8BitBgr(this Mat image)
         {
             if (image == null) throw new ArgumentNullException(nameof(image));
 
@@ -122,7 +122,7 @@ namespace Library.Imaging.Extensions
         {
             if (image == null) throw new ArgumentNullException(nameof(image));
 
-            var color = image.To8BitBrg();
+            var color = image.To8BitBgr();
             var grayscale = image.ToGrayscale();
 
             // Remove iPhone slider

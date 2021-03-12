@@ -28,6 +28,13 @@ namespace Library.Hosting
                     .AddJsonFile("appsettings.json", false)
                     .AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", false)
                     .AddEnvironmentVariables();
+
+                configuration.AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    {"ApplicationName", context.HostingEnvironment.ApplicationName},
+                    {"ContentRootPath", context.HostingEnvironment.ContentRootPath},
+                    {"EnvironmentName", context.HostingEnvironment.EnvironmentName}
+                });
             });
 
             return builder;
@@ -60,6 +67,12 @@ namespace Library.Hosting
                     }
 
                     configuration.AddEnvironmentVariables();
+                    configuration.AddInMemoryCollection(new Dictionary<string, string>
+                    {
+                        {"ApplicationName", env.ApplicationName},
+                        {"ContentRootPath", env.ContentRootPath},
+                        {"EnvironmentName", env.EnvironmentName}
+                    });
                 })
                 .UseDefaultServiceProvider((context, options) =>
                 {
