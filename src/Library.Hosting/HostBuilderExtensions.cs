@@ -10,6 +10,7 @@ using Autofac.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+using Serilog.Sinks.Elasticsearch;
 
 namespace Library.Hosting
 {
@@ -43,7 +44,7 @@ namespace Library.Hosting
         public static IHostBuilder UseDefaultConfiguration(this IHostBuilder builder)
         {
             builder
-                .UseContentRoot(Directory.GetCurrentDirectory())
+               // .UseContentRoot(Directory.GetCurrentDirectory())
                 .ConfigureHostConfiguration(configurationBuilder =>
                 {
                     configurationBuilder.AddEnvironmentVariables("DOTNET_");
@@ -70,7 +71,7 @@ namespace Library.Hosting
                     configuration.AddInMemoryCollection(new Dictionary<string, string>
                     {
                         {"ApplicationName", env.ApplicationName},
-                        {"ContentRootPath", env.ContentRootPath},
+                       // {"ContentRootPath", env.ContentRootPath},
                         {"EnvironmentName", env.EnvironmentName}
                     });
                 })
@@ -80,34 +81,6 @@ namespace Library.Hosting
                     options.ValidateScopes = isDevelopment;
                     options.ValidateOnBuild = isDevelopment;
                 });
-
-            return builder;
-        }
-
-        public static IHostBuilder UseAutofac(this IHostBuilder builder, Action<HostBuilderContext, ContainerBuilder> configure)
-        {
-            builder
-                .UseServiceProviderFactory(new AutofacServiceProviderFactory())
-                .ConfigureContainer(configure);
-
-            return builder;
-        }
-
-        public static IHostBuilder UseSerilog(this IHostBuilder builder)
-        {
-            builder.ConfigureContainer((HostBuilderContext context, ContainerBuilder containerBuilder) =>
-            {
-                containerBuilder.Register(c =>
-                    {
-                        var logger = new LoggerConfiguration()
-                            .ReadFrom.Configuration(context.Configuration)
-                            .CreateLogger();
-
-                        return logger;
-                    })
-                    .As<ILogger>()
-                    .InstancePerDependency();
-            });
 
             return builder;
         }

@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Library.Platform.Storage;
 
-namespace Libraries.ContentDelivery.LocalCdn
+namespace Library.ContentDelivery.LocalCdn
 {
     public class LocalFileClient : IContentDeliveryClient
     {

@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 using Library.Platform.Storage;
 using Microsoft.AspNetCore.StaticFiles;
 
-namespace Libraries.ContentDelivery.LocalCdn
+namespace Library.ContentDelivery.LocalCdn
 {
     public class LocalCdnClient : IContentDeliveryClient
     {

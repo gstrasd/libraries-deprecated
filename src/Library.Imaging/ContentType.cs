@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Library.Imaging.ComputerVision;
@@ -38,6 +39,16 @@ namespace Library.Imaging
             MediaType = mediaType;
         }
 
+        public static string GetMediaType(ImageFormat imageFormat)
+        {
+            return _contentTypes[imageFormat].MediaType;
+        }
+
+        public static string GetFileExtension(ImageFormat imageFormat)
+        {
+            return _contentTypes[imageFormat].Extension;
+        }
+
         public static ContentType Parse(string extensionOrMediaType)
         {
             if (extensionOrMediaType == null) throw new ArgumentNullException(nameof(extensionOrMediaType));
@@ -61,6 +72,11 @@ namespace Library.Imaging
 
             contentType = new ContentType(format, extension, mediaType);
             return true;
+        }
+
+        public static bool IsSupported(string extensionOrMediaType)
+        {
+            return !String.IsNullOrWhiteSpace(extensionOrMediaType) && _contentTypes.Any(i => i.Value.Extension.Equals(extensionOrMediaType, StringComparison.OrdinalIgnoreCase) || i.Value.MediaType.Equals(extensionOrMediaType, StringComparison.OrdinalIgnoreCase));
         }
 
         public readonly ImageFormat ImageFormat;

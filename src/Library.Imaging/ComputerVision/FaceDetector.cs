@@ -11,27 +11,6 @@ namespace Library.Imaging.ComputerVision
 {
     public class FaceDetector : ImageDetector
     {
-        public int solution(string s)
-        {
-            var count = 0;
-            var word = "BALLOON";
-            var array = s.ToCharArray();
-
-            while (true)
-            {
-                foreach (char letter in word)
-                {
-                    var index = s.IndexOf(letter);
-                    if (index < 0) return count;
-                    array[index] = '\0';
-                    array = array.Where(c => c > '\0').Select(c => c).ToArray();
-                    s = new String(array);
-                }
-
-                count++;
-            }
-        }
-
         private static readonly SemaphoreSlim _detect = new SemaphoreSlim(1, 1);
 
         public FaceDetector() : base(@"\data\haarcascades\haarcascade_frontalface_default.xml")

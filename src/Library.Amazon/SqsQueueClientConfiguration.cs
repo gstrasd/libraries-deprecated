@@ -8,8 +8,8 @@ namespace Library.Amazon
 {
     public class SqsQueueClientConfiguration
     {
-        public string QueueUrl { get; set; }
-        public int ReceiveWaitTimeSeconds { get; set; } = 5;
-        public int ReceiveVisibilityTimeout { get; set; } = 10;
+        public string QueueUrl { get; set; }        // TODO: Change type to Uri
+        public int WaitTimeSeconds { get; set; } = 5;
+        public int VisibilityTimeout { get; set; } = 10;
     }
 }

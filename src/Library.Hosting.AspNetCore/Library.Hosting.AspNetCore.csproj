@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.HeaderPropagation" Version="5.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Library.Hosting\Library.Hosting.csproj" />
+    <ProjectReference Include="..\Library.Imaging\Library.Imaging.csproj" />
+    <ProjectReference Include="..\Library.Platform\Library.Platform.csproj" />
+  </ItemGroup>
+
+</Project>

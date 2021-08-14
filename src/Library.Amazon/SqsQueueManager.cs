@@ -15,6 +15,7 @@ using Library.Platform.Queuing;
 
 namespace Library.Amazon
 {
+    // TODO: Update to follow coding patterns in S3StorageManager class
     public class SqsQueueManager : IQueueManager
     {
         private static readonly SemaphoreSlim _createSemaphore = new SemaphoreSlim(1, 1);
@@ -65,7 +66,7 @@ namespace Library.Amazon
         public async Task DeleteQueueAsync(string queue, CancellationToken token = default)
         {
             if (queue == null) throw new ArgumentNullException(nameof(queue));
-
+            
             var listResponse = await _client.ListQueuesAsync(queue, token);
             Resources.ExceptionHelper.ThrowOnFailedHttpRequest(listResponse.HttpStatusCode, "SqsQueueManager:QueueExistsAsync:HttpRequestException", queue);
 

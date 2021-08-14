@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -76,9 +77,11 @@ namespace Library.Dataflow
             return options;
         }
 
-        public static Func<T, bool> Accept<T>() => _ => true;
+        public static Func<T, bool> AcceptAll<T>() => _ => true;
 
-        public static Func<T, bool> Reject<T>() => _ => false;
+        public static Func<T, bool> RejectAll<T>() => _ => false;
+
+        public static Func<T, bool> RejectDefault<T>() => _ => (object)_ != default;
 
         public static async IAsyncEnumerable<T> ReceiveAllAsync<T>(this ISourceBlock<T> source, [EnumeratorCancellation] CancellationToken token = default)
         {
@@ -372,7 +375,7 @@ namespace Library.Dataflow
             return (broadcast, stack);
         }
 
-        public static (ISourceBlock<TOutput>, Stack) Default<TInput, TOutput>(IPropagatorBlock<TInput, TOutput> target) => Case(Accept<TInput>(), target);
+        public static (ISourceBlock<TOutput>, Stack) Default<TInput, TOutput>(IPropagatorBlock<TInput, TOutput> target) => Case(AcceptAll<TInput>(), target);
 
         public static (ISourceBlock<TOutput>, Stack) Case<TInput, TOutput>(Func<TInput, bool> condition, IPropagatorBlock<TInput, TOutput> target)
         {

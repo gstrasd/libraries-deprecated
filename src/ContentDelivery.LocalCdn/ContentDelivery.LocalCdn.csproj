@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
-    <AssemblyName>Libraries.ContentDelivery.LocalCdn</AssemblyName>
-    <RootNamespace>Libraries.ContentDelivery.LocalCdn</RootNamespace>
+    <TargetFramework>net5.0</TargetFramework>
+    <AssemblyName>Library.ContentDelivery.LocalCdn</AssemblyName>
+    <RootNamespace>Library.ContentDelivery.LocalCdn</RootNamespace>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Library.Platform\Library.Platform.csproj" />
+    <ProjectReference Include="..\Library\Library.csproj" />
   </ItemGroup>
 
 </Project>

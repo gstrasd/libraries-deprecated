@@ -1,0 +1,198 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema",
+    "$id": "https://example.com/redis.json",
+    "title": "Redis",
+    "description": "appsettings json schema for Redis cache",
+    "type": "object",
+    "properties": {
+        "Redis": {
+            "type": "object",
+            "properties": {
+                "ConfigurationOptions": {
+                    "type": "object",
+                    "description": "The configuration used to connect to Redis",
+                    "properties": {
+                        "AbortOnConnectFail": {
+                            "type": "boolean",
+                            "description": "Determines whether connect/configuration timeouts should be explicitly notified via a TimeoutException."
+                        },
+                        "AllowAdmin": {
+                            "type": "boolean",
+                            "description": "Indicates whether admin operations should be allowed."
+                        },
+                        "AsyncTimeout": {
+                            "type": "integer",
+                            "description": "Specifies the time in milliseconds that the system should allow for asynchronous operations (defaults to SyncTimeout)."
+                        },
+                        "ChannelPrefix": {
+                            "type": "object",
+                            "description": "Represents a pub/sub channel.",
+                            "properties": {
+                                "Name": {
+                                    "type": "string",
+                                    "description": "The name of the channel."
+                                },
+                                "PatternMode": {
+                                    "type": "string",
+                                    "enum": [
+                                        "Auto",
+                                        "Literal",
+                                        "Pattern"
+                                    ],
+                                    "description": "The mode for name matching."
+                                }
+                            }
+                        },
+                        "ClientName": {
+                            "type": "string",
+                            "description": "The client name to use for all connections."
+                        },
+                        "ConnectRetry": {
+                            "type": "integer",
+                            "description": "The number of times to repeat the initial connect cycle if no servers respond promptly."
+                        },
+                        "ConfigurationChannel": {
+                            "type": "string",
+                            "description": "The channel to use for broadcasting and listening for configuration change notifications."
+                        },
+                        "ConnectTimeout": {
+                            "type": "integer",
+                            "description": "Specifies the time in milliseconds that should be allowed for connection (defaults to 5 seconds unless SyncTimeout is higher)."
+                        },
+                        "DefaultDatabase": {
+                            "type": "integer",
+                            "description": "Specifies the default database to be used when calling ConnectionMultiplexer.GetDatabase() without any parameters."
+                        },
+                        "DefaultVersion": {
+                            "type": "string",
+                            "description": "The server version to assume."
+                        },
+                        "ConnectionEndpoints": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "description": "The network address"
+                            },
+                            "description": "A list of network addresses to connect to."
+                        },
+                        "HighPrioritySocketThreads": {
+                            "type": "boolean",
+                            "description": "If true (default), ThreadPriority.AboveNormal for SocketManager reader and writer threads is used. If false, ThreadPriority.Normal will be used."
+                        },
+                        "KeepAlive": {
+                            "type": "integer",
+                            "description": "Specifies the time in seconds at which connections should be pinged to ensure validity."
+                        },
+                        "Password": {
+                            "type": "string",
+                            "description": "The password to use to authenticate with the server."
+                        },
+                        "Proxy": {
+                            "type": "string",
+                            "enum": [
+                                "None",
+                                "Twemproxy"
+                            ],
+                            "description": "Type of proxy to use (if any)."
+                        },
+                        "ReconnectRetryPolicy": {
+                            "type": "object",
+                            "description": "The retry policy to be used for connection reconnects.",
+                            "properties": {
+                                "Linear": {
+                                    "type": "object",
+                                    "description": "Represents a retry policy that performs retries at a fixed interval. The retries are performed up to a maximum allowed time.",
+                                    "properties": {
+                                        "MaxRetryElapsedTimeAllowedMilliseconds": {
+                                            "type": "integer",
+                                            "description": "The maximum elapsed time in milliseconds to be allowed for it to perform retries."
+                                        }
+                                    }
+                                },
+                                "Exponential": {
+                                    "type": "object",
+                                    "description": "Represents a retry policy that performs retries, using a randomized exponential back off scheme to determine the interval between retries.",
+                                    "properties": {
+                                        "DeltaBackOffMilliseconds": {
+                                            "type": "integer",
+                                            "description": "The time in milliseconds for the back-off interval between retries."
+                                        },
+                                        "MaxDeltaBackOffMilliseconds": {
+                                            "type": "integer",
+                                            "description": "The maximum time in milliseconds that the back-off interval can grow to."
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "ResolveDns": {
+                            "type": "boolean",
+                            "description": "Indicates whether endpoints should be resolved via DNS before connecting. If enabled the ConnectionMultiplexer will re-resolve the DNS when attempting to re-connect after a connection failure."
+                        },
+                        "ServiceName": {
+                            "type": "string",
+                            "description": "The service name used to resolve a service via sentinel."
+                        },
+                        "Sockets": {
+                            "type": "object",
+                            "description": "Creates the SocketManager instance to be used with these options; if this is null, a per-multiplexer SocketManager is created automatically.",
+                            "properties": {
+                                "Manager": {
+                                    "type": "string",
+                                    "description": "The customized name of the SocketManager."
+                                },
+                                "UseHighPrioritySocketThreads": {
+                                    "type": "boolean",
+                                    "description": "Whether the SocketManager should use high priority sockets."
+                                }
+                            }
+                        },
+                        "Ssl": {
+                            "type": "boolean",
+                            "description": "Indicates whether the connection should be encrypted."
+                        },
+                        "SslHost": {
+                            "type": "string",
+                            "description": "The target-host to use when validating SSL certificates. Setting a value here enables SSL mode"
+                        },
+                        "SslProtocols": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [ "None", "Tls", "Tls11", "Tls12" ]
+                            },
+                            "description": "The combination of SSL/TLS protocols to be allowed. If not set, defaults are chosen by the .NET framework."
+                        },
+                        "SyncTimeout": {
+                            "type": "integer",
+                            "description": "Specifies the time in milliseconds that the system should allow for synchronous operations (defaults to 5 seconds)"
+                        },
+                        "TieBreaker": {
+                            "type": "string",
+                            "description": "The endpoint to use as a tie-breaker when choosing between masters (must match the endpoint exactly)."
+                        },
+                        "ConfigCheckSeconds": {
+                            "type": "integer",
+                            "description": "The number of seconds to check for configuration changes (defaults to 60 seconds)."
+                        }
+                    },
+                    "required": [ "ConnectionEndpoints" ]
+                },
+                "InstanceName": {
+                    "type": "string",
+                    "description": "The Redis instance name"
+                }
+            },
+            "required": [ "ConfigurationOptions" ]
+            
+        }
+        //"versions": {
+        //  "type": "array",
+        //  "description": "An array of version numbers.",
+        //  "minItems": 1,
+        //  "items": {
+        //    "type": "number"
+        //  }
+        //}
+    }
+}

@@ -12,10 +12,8 @@ using OpenCvSharp;
 
 namespace Library.Imaging.ComputerVision
 {
-    public abstract class ImageDetector : IDisposable
+    public abstract class ImageDetector
     {
-        private bool _disposed;
-
         protected ImageDetector(string filename)
         {
             if (filename == null) throw new ArgumentNullException(nameof(filename));
@@ -40,47 +38,23 @@ namespace Library.Imaging.ComputerVision
 
         ~ImageDetector()
         {
-            Dispose(false);
+            GC.KeepAlive(Classifier);
         }
 
         protected CascadeClassifier Classifier { get; }
 
-        public async Task<List<RectangleF>> DetectAsync([NotNull] Mat image, CancellationToken token = default)        // TODO: add parameter attributes and arg validation to everything in library
+        public async Task<List<Rect>> DetectAsync([NotNull] Mat image, CancellationToken token = default)        // TODO: add parameter attributes and arg validation to everything in library
         {
             EnsureNotDisposed();
             var detections = await DetectInternalAsync(image, token) ?? new List<Rect>();
 
-            return detections.Select(d => new RectangleF(
-                d.X / (float)image.Width,
-                d.Y / (float)image.Height,
-                d.Width / (float)image.Width,
-                d.Height / (float)image.Height)
-            ).ToList();
+            return detections;
         }
 
         protected abstract Task<List<Rect>> DetectInternalAsync(Mat image, CancellationToken token);
 
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (_disposed) return;
-
-            if (disposing)
-            {
-                if (Classifier != null && !Classifier.IsDisposed) Classifier.Dispose();
-            }
-
-            _disposed = true;
-        }
-
         private void EnsureNotDisposed()
         {
-            if (_disposed) throw new ObjectDisposedException($"Cannot perform operations on a disposed {nameof(ImageDetector)}.");
             if (Classifier.IsDisposed) throw new ObjectDisposedException($"Cannot perform operations on a disposed {nameof(CascadeClassifier)}.");
         }
     }

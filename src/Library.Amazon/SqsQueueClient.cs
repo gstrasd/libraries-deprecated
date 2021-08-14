@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Buffers.Text;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -15,12 +18,15 @@ using Amazon.Runtime.SharedInterfaces;
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using Library.Amazon.Resources;
+using Library.Dataflow;
 using Library.Platform.Queuing;
 
 namespace Library.Amazon
 {
-    public class SqsQueueClient : IQueueClient, IDisposable
+    public class SqsQueueClient : IQueueClient, IObservable<string>, IObservable<IMessage>, IDisposable
     {
+        private readonly ObserverManager<string> _messageObserverManager = new ObserverManager<string>();
+        private readonly ObserverManager<IMessage> _typedMessageObserverManager = new ObserverManager<IMessage>();
         private readonly IAmazonSQS _client;
         private readonly SqsQueueClientConfiguration _configuration;
         private bool _disposed;
@@ -34,8 +40,12 @@ namespace Library.Amazon
 
             _client = client;
             _configuration = configuration;
-            QueueName = _configuration.QueueUrl[(_configuration.QueueUrl.LastIndexOf("/") + 1)..];
+            QueueName = _configuration.QueueUrl[(_configuration.QueueUrl.LastIndexOf("/", StringComparison.Ordinal) + 1)..];
         }
+
+        public IDisposable Subscribe(IObserver<string> observer) => _messageObserverManager.Subscribe(observer);
+
+        public IDisposable Subscribe(IObserver<IMessage> observer) => _typedMessageObserverManager.Subscribe(observer);
 
         ~SqsQueueClient()
         {
@@ -44,16 +54,25 @@ namespace Library.Amazon
 
         public string QueueName { get; }
 
-        public async Task WriteMessageAsync(string json, CancellationToken token = default)
+        public async Task WriteRawMessageAsync(string message, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
-            if (json == null) throw new ArgumentNullException(nameof(json));
-
-            var bytes = Encoding.UTF8.GetBytes(json);
-            var message = Convert.ToBase64String(bytes);
+            if (message == null) throw new ArgumentNullException(nameof(message));
 
             await _client.SendMessageAsync(_configuration.QueueUrl, message, token);
+        }
+
+        public async Task WriteMessageAsync(string message, CancellationToken token = default)
+        {
+            EnsureNotDisposed();
+
+            if (message == null) throw new ArgumentNullException(nameof(message));
+
+            var bytes = Encoding.UTF8.GetBytes(message);
+            var base64String = Convert.ToBase64String(bytes);
+
+            await WriteRawMessageAsync(base64String, token);
         }
 
         public async Task WriteMessageAsync<TMessage>(TMessage message, CancellationToken token = default) where TMessage : IMessage
@@ -63,10 +82,13 @@ namespace Library.Amazon
             if (message == null) throw new ArgumentNullException(nameof(message));
 
             var json = JsonSerializer.Serialize(message);
-            await WriteMessageAsync(json, token);
+            var bytes = Encoding.UTF8.GetBytes(json);
+            var base64String = Convert.ToBase64String(bytes);
+
+            await WriteRawMessageAsync(base64String, token);
         }
 
-        public async IAsyncEnumerable<string> ReadMessagesAsync(int messageCount = 1, [EnumeratorCancellation] CancellationToken token = default)
+        public async IAsyncEnumerable<string> ReadRawMessageAsync(int messageCount = 1, [EnumeratorCancellation] CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -74,19 +96,17 @@ namespace Library.Amazon
             {
                 QueueUrl = _configuration.QueueUrl,
                 MaxNumberOfMessages = messageCount,
-                WaitTimeSeconds = _configuration.ReceiveWaitTimeSeconds,
-                VisibilityTimeout = _configuration.ReceiveVisibilityTimeout
+                WaitTimeSeconds = _configuration.WaitTimeSeconds,
+                VisibilityTimeout = _configuration.VisibilityTimeout
             };
+
             var response = await _client.ReceiveMessageAsync(request, token);
 
             foreach (var message in response.Messages)
             {
                 if (token.IsCancellationRequested) break;
-                
-                var bytes = Convert.FromBase64String(message.Body);
-                var json = Encoding.UTF8.GetString(bytes);
 
-                yield return json;
+                yield return message.Body;
 
                 var delete = new DeleteMessageRequest
                 {
@@ -94,9 +114,36 @@ namespace Library.Amazon
                     ReceiptHandle = message.ReceiptHandle
                 };
 
-                // If cancellation is requested, delete the message without awaiting a response
-                if (token.IsCancellationRequested) _client.DeleteMessageAsync(delete, default).Start();
-                else await _client.DeleteMessageAsync(delete, token);
+                await _client.DeleteMessageAsync(delete, token);
+            }
+        }
+
+        public async IAsyncEnumerable<string> ReadMessagesAsync(int messageCount = 1, [EnumeratorCancellation] CancellationToken token = default)
+        {
+            EnsureNotDisposed();
+
+            var messages = ReadRawMessageAsync(messageCount, token);
+
+            await foreach (var message in messages.WithCancellation(token))
+            {
+                if (token.IsCancellationRequested) break;
+
+                string decodedMessage;
+
+                try
+                {
+                    var bytes = Convert.FromBase64String(message);
+                    decodedMessage = Encoding.UTF8.GetString(bytes);
+                }
+                catch (Exception e)
+                {
+                    var error = new QueueClientReadMessageException(message, $"An error occurred while reading the body of a message read from the {QueueName} queue.", e);
+                    await _messageObserverManager.NotifyErrorAsync(error);
+                    continue;
+                }
+
+                await _messageObserverManager.NotifyAsync(decodedMessage);
+                yield return decodedMessage;
             }
         }
 
@@ -104,11 +151,29 @@ namespace Library.Amazon
         {
             EnsureNotDisposed();
 
-            var messages = ReadMessagesAsync(messageCount, token);
-            await foreach (var json in messages.WithCancellation(token))
+            var messages = ReadRawMessageAsync(messageCount, token);
+
+            await foreach (var message in messages.WithCancellation(token))
             {
-                var message = JsonSerializer.Deserialize<TMessage>(json);
-                yield return message;
+                if (token.IsCancellationRequested) break;
+
+                TMessage typedMessage;
+
+                try
+                {
+                    var bytes = Convert.FromBase64String(message);
+                    var json = Encoding.UTF8.GetString(bytes);
+                    typedMessage = JsonSerializer.Deserialize<TMessage>(json);
+                }
+                catch (Exception e)
+                {
+                    var error = new QueueClientReadMessageException(message, $"An error occurred while deserializing the body of a message read from the {QueueName} queue.", e);
+                    await _typedMessageObserverManager.NotifyErrorAsync(error);
+                    continue;
+                }
+
+                await _typedMessageObserverManager.NotifyAsync(typedMessage);
+                yield return typedMessage;
             }
         }
 
@@ -131,6 +196,11 @@ namespace Library.Amazon
             {
                 _client?.Dispose();
             }
+
+            Task.WhenAll(
+                _messageObserverManager.NotifyCompleteAsync(),
+                _typedMessageObserverManager.NotifyCompleteAsync()
+            ).RunSynchronously();
 
             _disposed = true;
         }

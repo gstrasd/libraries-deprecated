@@ -17,7 +17,7 @@ using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using Amazon.S3.Util;
 using Library.Amazon.Resources;
-using Library.Http;
+using Library.Net;
 using Library.Platform.Storage;
 
 namespace Library.Amazon
@@ -44,7 +44,9 @@ namespace Library.Amazon
             Dispose(false);
         }
 
-        public string StorageName => _configuration.BucketName;
+        public string Container => _configuration.BucketName;
+
+        public Task<bool> ObjectExistsAsync(string name, CancellationToken token = default) => ObjectExistsAsync(null, name, token);
 
         public async Task<bool> ObjectExistsAsync(string scope, string name, CancellationToken token = default)
         {
@@ -58,110 +60,42 @@ namespace Library.Amazon
             };
 
             var response = await _client.ListObjectsV2Async(request, token);
-            if (!response.HttpStatusCode.IsSuccess())
-            {
-                throw new HttpRequestException($"Response status code {(int)response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to determine if an object with the given \"{key}\" key in the \"{_configuration.BucketName}\" bucket exists.");
-            }
 
             return response.KeyCount > 0;
         }
 
-        public async Task<bool> ScopeExistsAsync(string scope, CancellationToken token = default)
+        public IAsyncEnumerable<(string Scope, string Name)> ListObjectsAsync(CancellationToken token = default) => ListObjectsAsync(null, token);
+
+        public async IAsyncEnumerable<(string Scope, string Name)> ListObjectsAsync(string scope, [EnumeratorCancellation] CancellationToken token = default)
         {
             EnsureNotDisposed();
-            NormalizeScope(ref scope);
+            var prefix = NormalizeScope(scope);
 
             var request = new ListObjectsV2Request
             {
                 BucketName = _configuration.BucketName,
-                Prefix = scope,
-            };
-
-            var response = await _client.ListObjectsV2Async(request, token);
-            if (!response.HttpStatusCode.IsSuccess())
-            {
-                throw new HttpRequestException($"Response status code {(int)response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to determine if the given \"{scope}\" storage in the \"{_configuration.BucketName}\" bucket exists.");
-            }
-
-            return response.KeyCount > 0;
-        }
-
-        public async IAsyncEnumerable<(string Scope, string Name)> ListObjectsAsync(string storage, [EnumeratorCancellation] CancellationToken token = default)
-        {
-            EnsureNotDisposed();
-            NormalizeScope(ref storage);
-
-            var request = new ListObjectsV2Request
-            {
-                BucketName = _configuration.BucketName,
-                Prefix = storage,
+                Prefix = prefix,
             };
 
             ListObjectsV2Response response;
             do
             {
                 response = await _client.ListObjectsV2Async(request, token);
-                if (!response.HttpStatusCode.IsSuccess())
-                {
-                    throw new HttpRequestException($"Response status code {(int) response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to retrieve a list of objects with the given \"{storage}\" storage in the \"{_configuration.BucketName}\" bucket.");
-                }
-                
-                foreach (var s3Object in response.S3Objects)
+
+                foreach (var @object in response.S3Objects)
                 {
                     if (token.IsCancellationRequested) yield break;
 
-                    var key = s3Object.Key;
+                    var key = @object.Key;
                     if (key.Contains("/")) yield return (key[..(key.LastIndexOf("/") - 1)], key[key.LastIndexOf("/")..]);
                     else yield return (String.Empty, key);
                 }
             } while (response.IsTruncated);
         }
 
-        public async IAsyncEnumerable<string> ListScopesAsync([EnumeratorCancellation] CancellationToken token = default)
-        {
-            EnsureNotDisposed();
+        public Task<Stream> ReadObjectAsync(string name, CancellationToken token = default) => ReadObjectAsync(null, name, token);
 
-            var scopes = new List<string>(1000);
-            var objects = ListObjectsAsync(String.Empty, token);
-
-            await foreach (var @object in objects.WithCancellation(token))
-            {
-                scopes.Add(@object.Scope);
-            }
-
-            scopes.Sort(StringComparer.OrdinalIgnoreCase);
-            foreach (var scope in scopes.Distinct(StringComparer.Ordinal))
-            {
-                if (token.IsCancellationRequested) yield break;
-
-                yield return scope;
-            }
-        }
-
-        public async IAsyncEnumerable<(string Scope, string Name, Stream Value, IList<KeyValuePair<string, string>> Metadata)> LoadObjectsAsync(string scope, [EnumeratorCancellation] CancellationToken token = default)
-        {
-            EnsureNotDisposed();
-
-            var block = new TransformBlock<(string Scope, string Name), (string Scope, string Name, Stream Value, IList<KeyValuePair<string, string>> Metadata)>(
-                async o =>
-                {
-                    var (value, metadata) = await LoadObjectAsync<Stream>(o.Scope, o.Name, token);
-                    return (o.Scope, o.Name, value, metadata);
-                });
-            var objects = ListObjectsAsync(scope, token);
-
-            await foreach (var @object in objects.WithCancellation(token)) await block.SendAsync(@object, token);
-            block.Complete();
-
-            while (await block.OutputAvailableAsync(token))
-            {
-                if (token.IsCancellationRequested) yield break;
-
-                yield return await block.ReceiveAsync(token);
-            }
-        }
-
-        public async Task<(T Value, IList<KeyValuePair<string, string>> Metadata)> LoadObjectAsync<T>(string scope, string name, CancellationToken token = default)
+        public Task<Stream> ReadObjectAsync(string scope, string name, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -171,48 +105,18 @@ namespace Library.Amazon
             if (name.Length == 0) throw new ArgumentException("No name was specified.", nameof(name));
 
             var key = BuildKey(scope, name);
-
             var request = new GetObjectRequest
             {
                 BucketName = _configuration.BucketName,
                 Key = key,
             };
 
-            GetObjectResponse response = null;
-            try
-            {
-                response = await _client.GetObjectAsync(request, token);
-            }
-            catch (Exception e)
-            {
-                return default;
-            }
-
-            if (!response.HttpStatusCode.IsSuccess())
-            {
-                throw new HttpRequestException($"Response status code {(int)response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to load an object with the given \"{key}\" key in the \"{_configuration.BucketName}\" bucket.");
-            }
-            
-            var metadata = response.Metadata?.Keys.Select(key => new KeyValuePair<string, string>(key, response.Metadata[key])).ToList() ?? new List<KeyValuePair<string, string>>();
-
-            var targetType = typeof(T);
-            if (targetType == typeof(Stream)) return ((T)(object)response.ResponseStream, metadata);
-
-            var sourceType = Type.GetType(metadata.FirstOrDefault(pair => pair.Key.Equals("Type")).Value);
-            if (sourceType != null && targetType != sourceType && !sourceType.IsSubclassOf(targetType))
-            {
-                throw new InvalidCastException($"Requested object is not of the specified type ({targetType.Name}).");
-            }
-
-            await using (response.ResponseStream)
-            {
-                var formatter = new BinaryFormatter();
-                var value = (T) formatter.Deserialize(response.ResponseStream);
-                return (value, metadata);
-            }
+            return _client.GetObjectAsync(request, token).ContinueWith(t => t.Result?.ResponseStream, token);
         }
 
-        public async Task SaveObjectAsync<T>(string scope, string name, T value, List<KeyValuePair<string, string>> metadata = default, CancellationToken token = default)
+        public Task WriteObjectAsync(string name, Stream stream, CancellationToken token = default) => WriteObjectAsync(null, name, stream, token);
+
+        public Task WriteObjectAsync(string scope, string name, Stream stream, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -220,44 +124,26 @@ namespace Library.Amazon
 
             name = name.Trim();
             if (name.Length == 0) throw new ArgumentException("No name was specified.", nameof(name));
-            if (typeof(T).IsValueType && value == null) throw new ArgumentNullException(nameof(value));
 
             var key = BuildKey(scope, name);
             var request = new PutObjectRequest
             {
                 BucketName = _configuration.BucketName,
-                Key = key
+                Key = key,
+                InputStream = stream,
+                AutoCloseStream = false,
+                AutoResetStreamPosition = true
             };
-            metadata?.ForEach(pair => request.Metadata.Add(pair.Key, pair.Value));
-            request.Metadata.Add("Type", typeof(T).AssemblyQualifiedName);
 
-            if (typeof(T) == typeof(Stream))
-            {
-                request.InputStream = (Stream)(object)value;
-                request.AutoCloseStream = false;
-                request.AutoResetStreamPosition = true;
-                var extension = key[key.LastIndexOf('.')..];
-                request.ContentType = MimeTypes.ByExtension[extension].FirstOrDefault()?.ContentType ?? "application/octet-stream";
-                request.Metadata.Add("Extension", extension);
-            }
-            else
-            {
-                var formatter = new BinaryFormatter();
-                await using var stream = new MemoryStream();
-                formatter.Serialize(stream, value);
-                stream.Position = 0;
-                request.InputStream = stream;
-                request.ContentType = "application/octet-stream";
-            }
+            var extension = key[key.LastIndexOf('.')..];
+            request.ContentType = MimeTypes.ByExtension[extension].FirstOrDefault()?.ContentType ?? "application/octet-stream";
 
-            var response = await _client.PutObjectAsync(request, token);
-            if (!response.HttpStatusCode.IsSuccess())
-            {
-                throw new HttpRequestException($"Response status code {(int)response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to save an object with the given \"{key}\" key in the \"{_configuration.BucketName}\" bucket.");
-            }
+            return _client.PutObjectAsync(request, token);
         }
 
-        public async Task DeleteObjectAsync(string scope, string name, CancellationToken token = default)
+        public Task DeleteObjectAsync(string name, CancellationToken token = default) => DeleteObjectAsync(null, name, token);
+
+        public Task DeleteObjectAsync(string scope, string name, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -272,15 +158,11 @@ namespace Library.Amazon
                 BucketName = _configuration.BucketName,
                 Key = key
             };
-            
-            var response = await _client.DeleteObjectAsync(request, token);
-            if (!response.HttpStatusCode.IsSuccess())
-            {
-                throw new HttpRequestException($"Response status code {(int)response.HttpStatusCode} ({response.HttpStatusCode.GetDescription()}) indicates that this storage client failed to delete an object with the given \"{key}\" key in the \"{_configuration.BucketName}\" bucket.");
-            }
+
+            return _client.DeleteObjectAsync(request, token);
         }
 
-        public async Task PurgeScopeAsync(string scope, CancellationToken token = default)
+        public async Task DeleteScopeAsync(string scope, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -289,21 +171,24 @@ namespace Library.Amazon
 
             await foreach (var @object in objects.WithCancellation(token)) await block.SendAsync(@object, token);
             block.Complete();
+
             await block.Completion;
         }
 
         private static string BuildKey(string scope, string name)
         {
-            NormalizeScope(ref scope);
+            scope = NormalizeScope(scope);
             return $"{scope}{name.Trim()}";
         }
 
-        private static void NormalizeScope(ref string scope)
+        private static string NormalizeScope(string scope)
         {
             if (String.IsNullOrWhiteSpace(scope)) scope = String.Empty;
             scope = Regex.Replace(scope.Trim(), @"[\\/]+", "/");
             if (scope == "/") scope = String.Empty;
             if (!scope.EndsWith("/")) scope += "/";
+
+            return scope;
         }
 
         public void Dispose()

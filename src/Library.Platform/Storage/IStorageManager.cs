@@ -9,10 +9,10 @@ namespace Library.Platform.Storage
 {
     public interface IStorageManager
     {
-        Task<bool> StorageExistsAsync(string storage, CancellationToken token = default);
-        Task CreateStorageAsync(string storage, CancellationToken token = default);
-        Task DeleteStorageAsync(string storage, CancellationToken token = default);
-        Task PurgeStorageAsync(string storage, CancellationToken token = default);
-        IAsyncEnumerable<string> ListStoragesAsync(CancellationToken token = default);
+        Task<bool> ContainerExistsAsync(string container, CancellationToken token = default);
+        Task CreateContainerAsync(string container, CancellationToken token = default);
+        Task DeleteContainerAsync(string container, CancellationToken token = default);
+        Task PurgeContainerAsync(string container, CancellationToken token = default);
+        IAsyncEnumerable<string> ListContainersAsync(CancellationToken token = default);
     }
 }

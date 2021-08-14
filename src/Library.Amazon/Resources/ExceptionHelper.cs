@@ -5,7 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using Library.Http;
+using Library.Net;
 using Library.Resources;
 
 namespace Library.Amazon.Resources
@@ -18,7 +18,7 @@ namespace Library.Amazon.Resources
         {
             if (code.IsSuccess()) return;
 
-            var values = new object[] { (int)code, code.GetDescription() }.Concat(args).ToArray();
+            var values = new object[] { (int)code, String.Format(new HttpStatusCodeFormatter(), "F", code) }.Concat(args).ToArray();
 
             throw new HttpRequestException(String.Format(_messages[key], values));
         }
