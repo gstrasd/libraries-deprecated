@@ -9,10 +9,10 @@ using System.Threading.Tasks;
 
 namespace Library.GeoLocation
 {
-	public sealed class IpDatabaseReader : IDisposable
+	public sealed class IpDatabaseReader : IDisposable		// TODO: Add interface to make it interchangeable with other ip databases in the future and place interface in another project?
 	{
 		private readonly MemoryMappedViewAccessor _view;
-		private readonly IIpDatabaseDataReader _reader;
+		private readonly IpDatabaseDataReader _reader;
 		private bool _disposed;
 
 		public IpDatabaseReader(IpDatabase database)
@@ -36,7 +36,9 @@ namespace Library.GeoLocation
 
 			var row = _reader.SeekRow(ipAddress);
 			var factory = new ReflectingIpDatabaseDataFactory(ipAddress);
-			var value = factory.ReadAsync<T>(_reader, row);
+			
+			_reader.CurrentRow = row;
+			var value = factory.ReadAsync<T>(_reader);
 
 			return value;
 		}
@@ -44,14 +46,15 @@ namespace Library.GeoLocation
 		public Task<T> ReadAsync<T>(IPAddress ipAddress) where T : new()
 		{
 			AssertNotDisposed();
-
+			// TODO: Account for scenario where a non-null ipAddress doesn't have any data, like "...:1"
+			// TODO: Account for local ip address scenario
 			if (ipAddress == null) throw new ArgumentNullException(nameof(ipAddress));
 
 			var row = _reader.SeekRow(ipAddress);
 			var factory = new ReflectingIpDatabaseDataFactory(ipAddress);
-			var value = factory.ReadAsync<T>(_reader, row);
-
-			return value;
+			
+			_reader.CurrentRow = row;
+			return factory.ReadAsync<T>(_reader);
 		}
 
 		private void AssertNotDisposed()

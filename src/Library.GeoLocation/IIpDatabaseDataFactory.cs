@@ -8,6 +8,7 @@ namespace Library.GeoLocation
 {
 	public interface IIpDatabaseDataFactory<out T>
 	{
-		T Read(IIpDatabaseDataReader reader, long row);
+		T Read(IIpDatabaseDataReader reader);
+		T Read(IIpDatabaseDataReader reader, long row) => Read(reader);
 	}
 }

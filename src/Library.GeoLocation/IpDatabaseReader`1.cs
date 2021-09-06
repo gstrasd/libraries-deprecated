@@ -12,10 +12,10 @@ using static Library.GeoLocation.GeoFieldName;
 
 namespace Library.GeoLocation
 {
-	public class IpDatabaseReader<T> : IDisposable
+	public class IpDatabaseReader<T> : IDisposable      // TODO: Add interface to make it interchangeable with other ip databases in the future and place interface in another project?
 	{
 		private readonly MemoryMappedViewAccessor _view;
-		private readonly IIpDatabaseDataReader _reader;
+		private readonly IpDatabaseDataReader _reader;
 		private readonly IIpDatabaseDataFactory<T> _factory;
 		private bool _disposed;
 
@@ -38,7 +38,8 @@ namespace Library.GeoLocation
 			if (!IPAddress.TryParse(address, out var ipAddress)) throw new ArgumentException("Invalid IP address.");
 
 			var row = _reader.SeekRow(ipAddress);
-			var value = _factory.Read(_reader, row);
+			_reader.CurrentRow = row;
+			var value = _factory.Read(_reader);
 
 			return Task.FromResult(value);
 		}
@@ -50,7 +51,8 @@ namespace Library.GeoLocation
 			if (ipAddress == null) throw new ArgumentNullException(nameof(ipAddress));
 
 			var row = _reader.SeekRow(ipAddress);
-			var value = _factory.Read(_reader, row);
+			_reader.CurrentRow = row;
+			var value = _factory.Read(_reader);
 
 			return Task.FromResult(value);
 		}

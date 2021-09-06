@@ -21,7 +21,7 @@ namespace Library.GeoLocation
 			_ipAddress = ipAddress;
 		}
 
-		public async Task<T> ReadAsync<T>(IIpDatabaseDataReader reader, long row) where T : new()
+		public async Task<T> ReadAsync<T>(IIpDatabaseDataReader reader) where T : new()
 		{
 			var properties = await GetTypePropertiesAsync<T>();
 			var value = new T();
@@ -32,29 +32,29 @@ namespace Library.GeoLocation
 				{
 					case Unspecified: continue;
 					case IpAddress: property.SetValue(value, _ipAddress); continue;
-					case CountryShort: property.SetValue(value, reader.ReadCountryShort(row)); continue;
-					case CountryLong: property.SetValue(value, reader.ReadCountryLong(row)); continue;
-					case Region: property.SetValue(value, reader.ReadRegion(row)); continue;
-					case City: property.SetValue(value, reader.ReadCity(row)); continue;
-					case Isp: property.SetValue(value, reader.ReadIsp(row)); continue;
-					case Latitude: property.SetValue(value, reader.ReadLatitude(row)); continue;
-					case Longitude: property.SetValue(value, reader.ReadLongitude(row)); continue;
-					case GeoFieldName.GeoCoordinate: property.SetValue(value, reader.ReadGeoCoordinate(row)); continue;
-					case Domain: property.SetValue(value, reader.ReadDomain(row)); continue;
-					case ZipCode: property.SetValue(value, reader.ReadZipCode(row)); continue;
-					case GeoFieldName.TimeZone: property.SetValue(value, reader.ReadTimeZoneOffset(row)); continue;
-					case NetSpeed: property.SetValue(value, reader.ReadNetSpeed(row)); continue;
-					case IddCode: property.SetValue(value, reader.ReadIddCode(row)); continue;
-					case AreaCode: property.SetValue(value, reader.ReadAreaCode(row)); continue;
-					case WeatherStationCode: property.SetValue(value, reader.ReadWeatherStationCode(row)); continue;
-					case WeatherStationName: property.SetValue(value, reader.ReadWeatherStationName(row)); continue;
-					case Mcc: property.SetValue(value, reader.ReadMcc(row)); continue;
-					case Mnc: property.SetValue(value, reader.ReadMnc(row)); continue;
-					case MobileBrand: property.SetValue(value, reader.ReadMobileBrand(row)); continue;
-					case Elevation: property.SetValue(value, reader.ReadElevation(row)); continue;
-					case UsageType: property.SetValue(value, reader.ReadUsageType(row)); continue;
-					case AddressType: property.SetValue(value, reader.ReadAddressType(row)); continue;
-					case Category: property.SetValue(value, reader.ReadCategory(row)); continue;
+					case CountryShort: property.SetValue(value, reader.ReadCountryShort()); continue;
+					case CountryLong: property.SetValue(value, reader.ReadCountryLong()); continue;
+					case Region: property.SetValue(value, reader.ReadRegion()); continue;
+					case City: property.SetValue(value, reader.ReadCity()); continue;
+					case Isp: property.SetValue(value, reader.ReadIsp()); continue;
+					case Latitude: property.SetValue(value, reader.ReadLatitude()); continue;
+					case Longitude: property.SetValue(value, reader.ReadLongitude()); continue;
+					case GeoFieldName.GeoCoordinate: property.SetValue(value, reader.ReadGeoCoordinate()); continue;
+					case Domain: property.SetValue(value, reader.ReadDomain()); continue;
+					case ZipCode: property.SetValue(value, reader.ReadZipCode()); continue;
+					case GeoFieldName.TimeZone: property.SetValue(value, reader.ReadTimeZone()); continue;
+					case NetSpeed: property.SetValue(value, reader.ReadNetSpeed()); continue;
+					case IddCode: property.SetValue(value, reader.ReadIddCode()); continue;
+					case AreaCode: property.SetValue(value, reader.ReadAreaCode()); continue;
+					case WeatherStationCode: property.SetValue(value, reader.ReadWeatherStationCode()); continue;
+					case WeatherStationName: property.SetValue(value, reader.ReadWeatherStationName()); continue;
+					case Mcc: property.SetValue(value, reader.ReadMcc()); continue;
+					case Mnc: property.SetValue(value, reader.ReadMnc()); continue;
+					case MobileBrand: property.SetValue(value, reader.ReadMobileBrand()); continue;
+					case Elevation: property.SetValue(value, reader.ReadElevation()); continue;
+					case UsageType: property.SetValue(value, reader.ReadUsageType()); continue;
+					case AddressType: property.SetValue(value, reader.ReadAddressType()); continue;
+					case Category: property.SetValue(value, reader.ReadCategory()); continue;
 					default: continue;
 				}
 			}

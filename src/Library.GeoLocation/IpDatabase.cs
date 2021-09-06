@@ -12,7 +12,7 @@ using Microsoft.VisualBasic;
 
 namespace Library.GeoLocation
 {
-	public sealed class IpDatabase : IDisposable
+	public sealed class IpDatabase : IDisposable            // TODO: Add interface to make it interchangeable with other ip databases in the future and place interface in another project?
 	{
 		private static readonly Dictionary<string, (MemoryMappedFile File, IpDatabaseHeader Header, int Count)> _files = new(StringComparer.Ordinal);
 		private bool _disposed;

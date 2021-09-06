@@ -8,7 +8,7 @@ namespace Library.GeoLocation
 {
 	public sealed class GeoIpDatabaseReader : IpDatabaseReader<GeoIpData>
 	{
-		public GeoIpDatabaseReader(IpDatabase database) : base(database, new GeoIpDatabaseDataFactory())
+		public GeoIpDatabaseReader(IpDatabase database) : base(database, new GeoIpDataFactory())
 		{
 		}
 	}
