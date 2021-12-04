@@ -11,26 +11,6 @@ namespace Library.Installation
 {
     public static class InstallerBuilderExtensions
     {
-        public static IInstallerBuilder UseDefaultConfiguration(this IInstallerBuilder builder)
-        {
-            builder.ConfigureContainer((context, containerBuilder) =>
-            {
-                containerBuilder.Register(c => new Installer(c.Resolve<IEnumerable<IInstallerStep>>())).As<IInstaller>();
-            });
-
-            builder.ConfigureSetup((context, configurationBuilder) =>
-            {
-                configurationBuilder.AddInMemoryCollection(new Dictionary<string, string>
-                {
-                    {"ApplicationName", context.HostingEnvironment.ApplicationName},
-                    {"ContentRootPath", context.HostingEnvironment.ContentRootPath},
-                    {"EnvironmentName", context.HostingEnvironment.EnvironmentName}
-                });
-            });
-
-            return builder;
-        }
-
         public static IInstallerBuilder UseAppSettings(this IInstallerBuilder builder)
         {
             builder.ConfigureSetup((context, configurationBuilder) =>

@@ -10,13 +10,15 @@ using Microsoft.Extensions.Hosting.Internal;
 
 namespace Library.Installation
 {
-    public class InstallerBuilder : IInstallerBuilder
+    internal class InstallerBuilder : IInstallerBuilder
     {
         private readonly IConfigurationBuilder _configurationBuilder = new ConfigurationBuilder();
         private readonly ContainerBuilder _containerBuilder = new ContainerBuilder();
         private readonly List<Action<IConfigurationBuilder>> _configureSetupConfigurationActions = new List<Action<IConfigurationBuilder>>();
         private readonly List<Action<HostBuilderContext, IConfigurationBuilder>> _configureSetupActions = new List<Action<HostBuilderContext, IConfigurationBuilder>>();
         private readonly List<Action<HostBuilderContext, ContainerBuilder>> _configureContainerActions = new List<Action<HostBuilderContext, ContainerBuilder>>();
+
+        internal InstallerBuilder() {}
 
         public IInstallerBuilder ConfigureSetupConfiguration(Action<IConfigurationBuilder> configure)
         {

@@ -16,40 +16,11 @@ namespace Library.Hosting
 {
     public class HostCommand : RootCommand
     {
-        private readonly ISetupHost[] _setupHosts;
+        private readonly IHostBuilder _builder;
 
-        public HostCommand(params ISetupHost[] setups) : this()
+        public HostCommand(IHostBuilder builder) : base("Sets host options and executes this application.")
         {
-            if (setups == default) throw new ArgumentNullException(nameof(setups));
-            if (!setups.Any()) throw new ArgumentException("No arguments were specified.", nameof(setups));
-            if (setups.Any(t => t == default)) throw new ArgumentNullException(nameof(setups), "All arguments must not be null.");
-
-            _setupHosts = setups;
-        }
-
-        public HostCommand(params Type[] setups) : this()
-        {
-            if (setups == default) throw new ArgumentNullException(nameof(setups));
-            if (!setups.Any()) throw new ArgumentException("No arguments were specified.", nameof(setups));
-            if (setups.Any(t => t == default)) throw new ArgumentNullException(nameof(setups), "All arguments must not be null.");
-            if (setups.Any(t => !typeof(ISetupHost).GetTypeInfo().IsAssignableFrom(t.GetTypeInfo()))) throw new ArgumentException($"All arguments must be of a type that implements {nameof(ISetupHost)}.", nameof(setups));
-
-            _setupHosts = (
-                    from c in setups
-                    from ctor in c.GetConstructors(BindingFlags.Public)
-                    where
-                        !ctor.IsStatic
-                        && !ctor.GetParameters().Any()
-                    select ctor.Invoke(default)
-                )
-                .Cast<ISetupHost>()
-                .ToArray();
-
-            if (_setupHosts.Length != setups.Length) throw new ArgumentException("All arguments must be of a type that contains a default constructor.", nameof(setups));
-        }
-
-        private HostCommand() : base("Sets host options and executes this application.")
-        {
+            _builder = builder;
             var appOption = new Option<string>(new[] { "--applicationName", "--app" }, "Defines the application name.")
             {
                 AllowMultipleArgumentsPerToken = false,
@@ -65,13 +36,12 @@ namespace Library.Hosting
             AddOption(appOption);
             AddOption(envOption);
 
-            Handler = CommandHandler.Create((Func<string, string, Task>)InvokeAsync);
+            Handler = CommandHandler.Create((Action<string, string>)Invoke);
         }
 
-        private async Task InvokeAsync(string applicationName, string environment)
+        private void Invoke(string applicationName, string environment)
         {
-            var builder = new HostBuilder()
-                .UseServiceProviderFactory(new AutofacServiceProviderFactory())
+            _builder
                 .ConfigureHostConfiguration(config =>
                 {
                     // Add hosting command line options
@@ -81,17 +51,8 @@ namespace Library.Hosting
                     if (dictionary.Any()) config.AddInMemoryCollection(dictionary);
                 });
 
-            foreach (var c in _setupHosts)
-            {
-                c.ConfigureHostBuilder(builder);
-                builder.ConfigureHostConfiguration(c.ConfigureHostConfiguration);
-                builder.ConfigureAppConfiguration(c.ConfigureAppConfiguration);
-                builder.ConfigureServices(c.ConfigureServices);
-                builder.ConfigureContainer<ContainerBuilder>(c.ConfigureContainer);
-            }
-
-            var host = builder.Build();
-            await host.StartAsync();
+            using var host = _builder.Build();
+            host.Run();
         }
     }
 }

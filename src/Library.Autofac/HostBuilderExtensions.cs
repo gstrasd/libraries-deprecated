@@ -15,6 +15,13 @@ namespace Library.Autofac
 {
     public static class HostBuilderExtensions
     {
+        public static IHostBuilder UseAutofac(this IHostBuilder builder)
+        {
+            builder.UseServiceProviderFactory(new AutofacServiceProviderFactory());
+
+            return builder;
+        }
+
         public static IHostBuilder UseAutofac(this IHostBuilder builder, Action<HostBuilderContext, ContainerBuilder> configure)
         {
             builder
