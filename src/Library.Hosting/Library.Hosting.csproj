@@ -31,6 +31,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Library.Autofac\Library.Autofac.csproj" />
+    <ProjectReference Include="..\Library.Platform\Library.Platform.csproj" />
     <ProjectReference Include="..\Library\Library.csproj" />
   </ItemGroup>
 

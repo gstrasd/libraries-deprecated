@@ -12,18 +12,16 @@ namespace Library.Dataflow
     {
         private readonly ObserverManager<T> _observerManager = new ObserverManager<T>();
         private readonly ISourceBlock<T> _buffer;
-        private readonly AsyncLocal<Guid> _correlationId;
         private readonly CancellationTokenSource _tokenSource;
         private bool _started;
         private Task _task;
 
-        protected MessageConsumer(ISourceBlock<T> buffer, AsyncLocal<Guid> correlationId, CancellationToken token = default)
+        protected MessageConsumer(ISourceBlock<T> buffer, CancellationToken token = default)
         {
             if (buffer == null) throw new ArgumentNullException(nameof(buffer));
             if (buffer.Completion.IsCompleted) throw new ArgumentException("Message buffer is already complete and cannot be read from.", nameof(buffer));
 
             _buffer = buffer;
-            _correlationId = correlationId;
             _tokenSource = token.CanBeCanceled ? CancellationTokenSource.CreateLinkedTokenSource(token) : new CancellationTokenSource();
         }
 
@@ -64,8 +62,6 @@ namespace Library.Dataflow
                     if (await _buffer.OutputAvailableAsync(execution.Token))
                     {
                         var message = await _buffer.ReceiveAsync(token);
-
-                        if (_correlationId != null) _correlationId.Value = message.CorrelationId;
                         await _observerManager.NotifyAsync(message);
                         await ConsumeMessageAsync(message, token);
                     }

@@ -10,7 +10,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Library.Hosting
 {
-    public class MessageWorker<T> : BackgroundService where T : IMessage
+    public class MessageWorker<T> : BackgroundService, INamedBackgroundService where T : IMessage
     {
         private bool _paused;
         private CancellationTokenSource _tokenSource = new CancellationTokenSource();
