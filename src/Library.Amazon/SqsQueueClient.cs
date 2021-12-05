@@ -188,7 +188,7 @@ namespace Library.Amazon
             if (_disposed) ExceptionHelper.ThrowDisposed(nameof(SqsQueueClient));
         }
 
-        private void Dispose(bool disposing)
+        private void Dispose(bool disposing)        // TODO: Implement DisposeAsync
         {
             if (_disposed) return;
 
@@ -200,7 +200,7 @@ namespace Library.Amazon
             Task.WhenAll(
                 _messageObserverManager.NotifyCompleteAsync(),
                 _typedMessageObserverManager.NotifyCompleteAsync()
-            ).RunSynchronously();
+            );
 
             _disposed = true;
         }
