@@ -27,7 +27,7 @@ namespace Library.Installation
             if (configureSetup == null) throw new ArgumentNullException(nameof(configureSetup));
 
             AddOption(
-                new Option<string>(new[] {"--environment", "--env"}, "Defines the application environment.")
+                new Option<string>(new[] {"--environment", "-e"}, "Defines the application environment.")
                 {
                     AllowMultipleArgumentsPerToken = false,
                     IsRequired = false,

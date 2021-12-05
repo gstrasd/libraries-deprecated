@@ -29,6 +29,7 @@ namespace Library.Installation
                 Console.WriteLine($"Step {++stepNumber}: {step.Name}");
                 Console.ForegroundColor = colors.Pop();
                 await step.ExecuteAsync();
+                Console.WriteLine();
             }
 
             colors.Push(Console.ForegroundColor);
@@ -63,4 +64,4 @@ namespace Library.Installation
             return builder;
         }
     }
-}
+};
