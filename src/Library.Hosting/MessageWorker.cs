@@ -13,26 +13,26 @@ namespace Library.Hosting
     public class MessageWorker<T> : BackgroundService, INamedBackgroundService where T : IMessage
     {
         private bool _paused;
-        private CancellationTokenSource _tokenSource = new CancellationTokenSource();
+        private CancellationTokenSource _tokenSource = new();
         private Task _executing;
         private readonly List<MessageProducer<T>> _producers;
         private readonly List<MessageConsumer<T>> _consumers;
         private readonly MessageWorkerConfiguration _configuration;
         private readonly CancellationTokenSource _execution;
 
-        public MessageWorker(MessageProducer<T> producer, MessageWorkerConfiguration configuration = default) : this(new [] {producer}, new MessageConsumer<T>[] { }, configuration)
+        public MessageWorker(MessageProducer<T> producer, MessageWorkerConfiguration configuration = default) : this(new [] {producer}, Array.Empty<MessageConsumer<T>>(), configuration)
         {
         }
 
-        public MessageWorker(IEnumerable<MessageProducer<T>> producers, MessageWorkerConfiguration configuration = default) : this(producers, new MessageConsumer<T>[] { }, configuration)
+        public MessageWorker(IEnumerable<MessageProducer<T>> producers, MessageWorkerConfiguration configuration = default) : this(producers, Array.Empty<MessageConsumer<T>>(), configuration)
         {
         }
 
-        public MessageWorker(MessageConsumer<T> consumer, MessageWorkerConfiguration configuration = default) : this(new MessageProducer<T>[] { }, new [] {consumer}, configuration)
+        public MessageWorker(MessageConsumer<T> consumer, MessageWorkerConfiguration configuration = default) : this(Array.Empty<MessageProducer<T>>(), new [] {consumer}, configuration)
         {
         }
 
-        public MessageWorker(IEnumerable<MessageConsumer<T>> consumers, MessageWorkerConfiguration configuration = default) : this(new MessageProducer<T>[] { }, consumers, configuration)
+        public MessageWorker(IEnumerable<MessageConsumer<T>> consumers, MessageWorkerConfiguration configuration = default) : this(Array.Empty<MessageProducer<T>>(), consumers, configuration)
         {
         }
 

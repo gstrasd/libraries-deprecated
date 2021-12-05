@@ -10,7 +10,7 @@ namespace Library.Dataflow
 {
     public abstract class MessageConsumer<T> : IObservable<T> where T : IMessage
     {
-        private readonly ObserverManager<T> _observerManager = new ObserverManager<T>();
+        private readonly ObserverManager<T> _observerManager = new();
         private readonly ISourceBlock<T> _buffer;
         private readonly CancellationTokenSource _tokenSource;
         private bool _started;

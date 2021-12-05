@@ -7,7 +7,7 @@ namespace Library.Hosting
 {
     public sealed class WorkerRegistry
     {
-        private readonly ConcurrentDictionary<Guid, Worker> _registry = new ConcurrentDictionary<Guid, Worker>();
+        private readonly ConcurrentDictionary<Guid, Worker> _registry = new();
 
         internal WorkerRegistry()
         {

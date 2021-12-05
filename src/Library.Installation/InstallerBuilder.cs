@@ -13,10 +13,10 @@ namespace Library.Installation
     internal class InstallerBuilder : IInstallerBuilder
     {
         private readonly IConfigurationBuilder _configurationBuilder = new ConfigurationBuilder();
-        private readonly ContainerBuilder _containerBuilder = new ContainerBuilder();
-        private readonly List<Action<IConfigurationBuilder>> _configureSetupConfigurationActions = new List<Action<IConfigurationBuilder>>();
-        private readonly List<Action<HostBuilderContext, IConfigurationBuilder>> _configureSetupActions = new List<Action<HostBuilderContext, IConfigurationBuilder>>();
-        private readonly List<Action<HostBuilderContext, ContainerBuilder>> _configureContainerActions = new List<Action<HostBuilderContext, ContainerBuilder>>();
+        private readonly ContainerBuilder _containerBuilder = new();
+        private readonly List<Action<IConfigurationBuilder>> _configureSetupConfigurationActions = new();
+        private readonly List<Action<HostBuilderContext, IConfigurationBuilder>> _configureSetupActions = new();
+        private readonly List<Action<HostBuilderContext, ContainerBuilder>> _configureContainerActions = new();
 
         internal InstallerBuilder() {}
 

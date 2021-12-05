@@ -9,7 +9,7 @@ namespace Library.Hosting
 {
     public class MessageWorkerConfiguration
     {
-        public static readonly MessageWorkerConfiguration Default = new MessageWorkerConfiguration();
+        public static readonly MessageWorkerConfiguration Default = new();
 
         public bool Enabled { get; set; } = true;
     }

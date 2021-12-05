@@ -25,8 +25,8 @@ namespace Library.Amazon
 {
     public class SqsQueueClient : IQueueClient, IObservable<string>, IObservable<IMessage>, IDisposable
     {
-        private readonly ObserverManager<string> _messageObserverManager = new ObserverManager<string>();
-        private readonly ObserverManager<IMessage> _typedMessageObserverManager = new ObserverManager<IMessage>();
+        private readonly ObserverManager<string> _messageObserverManager = new();
+        private readonly ObserverManager<IMessage> _typedMessageObserverManager = new();
         private readonly IAmazonSQS _client;
         private readonly SqsQueueClientConfiguration _configuration;
         private bool _disposed;
@@ -35,8 +35,8 @@ namespace Library.Amazon
         {
             if (client == null) throw new ArgumentNullException(nameof(client));
             if (configuration == null) throw new ArgumentNullException(nameof(configuration));
-            if (configuration.QueueUrl == null) throw new ArgumentNullException(nameof(configuration.QueueUrl));
-            if (configuration.QueueUrl.Trim().Length == 0) throw new ArgumentException("No queue name was provided.", nameof(configuration.QueueUrl));
+            if (configuration.QueueUrl == null) throw new ArgumentNullException(nameof(configuration));
+            if (configuration.QueueUrl.Trim().Length == 0) throw new ArgumentException("No queue name was provided.", nameof(configuration));
 
             _client = client;
             _configuration = configuration;
