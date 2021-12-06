@@ -15,6 +15,6 @@ namespace Library.Messages.Social
         [JsonPropertyName("providerId")]
         public string ProviderId { get; set; }
         [JsonPropertyName("twitterAccount")]
-        public string TwitterAccount { get; set; }
+        public string TwitterUsername { get; set; }
     }
 }
