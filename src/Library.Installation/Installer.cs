@@ -44,24 +44,14 @@ namespace Library.Installation
 
         public static IInstallerBuilder CreateDefaultBuilder()
         {
-            var builder = new InstallerBuilder();
+            var installerBuilder = new InstallerBuilder();
 
-            builder.ConfigureContainer((context, containerBuilder) =>
+            installerBuilder.ConfigureContainer((context, builder) =>
             {
-                containerBuilder.Register(c => new Installer(c.Resolve<IEnumerable<IInstallerStep>>())).As<IInstaller>();
+                builder.Register(c => new Installer(c.Resolve<IEnumerable<IInstallerStep>>())).As<IInstaller>();
             });
 
-            builder.ConfigureSetup((context, configurationBuilder) =>
-            {
-                configurationBuilder.AddInMemoryCollection(new Dictionary<string, string>
-                {
-                    {"ApplicationName", context.HostingEnvironment.ApplicationName},
-                    {"ContentRootPath", context.HostingEnvironment.ContentRootPath},
-                    {"EnvironmentName", context.HostingEnvironment.EnvironmentName}
-                });
-            });
-
-            return builder;
+            return installerBuilder;
         }
     }
 };

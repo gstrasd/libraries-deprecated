@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Autofac;
 using Autofac.Core;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
 
 namespace Library.Installation
 {
@@ -17,19 +18,11 @@ namespace Library.Installation
             {
                 configurationBuilder
                     .SetBasePath(context.HostingEnvironment.ContentRootPath)
+                    .SetFileProvider(new PhysicalFileProvider(context.HostingEnvironment.ContentRootPath))
                     .AddJsonFile("appsettings.json", false)
                     .AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", false);
             });
 
-            return builder;
-        }
-
-        public static IInstallerBuilder UseAutofac<T>(this IInstallerBuilder builder) where T : IModule
-        {
-            builder.ConfigureContainer((c, cb) =>
-            {
-                cb.RegisterModule((T)Activator.CreateInstance(typeof(T), c.Configuration));
-            });
             return builder;
         }
     }

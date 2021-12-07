@@ -44,6 +44,8 @@ namespace Library.Installation
 
             Handler = CommandHandler.Create(async (string environment, string path) =>
             {
+                installerBuilder.UseAppSettings();
+
                 installerBuilder.ConfigureSetupConfiguration(configurationBuilder =>
                 {
                     configurationBuilder.Properties[HostDefaults.EnvironmentKey] = environment;
