@@ -89,17 +89,5 @@ namespace Library.Dataflow
         }
 
         protected abstract Task ConsumeMessageAsync(T message, CancellationToken token = default);
-
-        //private sealed class NullConsumer<T> : MessageConsumer<T> where T : IMessage
-        //{
-        //    internal NullConsumer() : base()
-        //    {
-        //    }
-
-        //    protected override Task ConsumeMessageAsync(T message, CancellationToken token = default)
-        //    {
-        //        return Task.CompletedTask;
-        //    }
-        //}
     }
 }

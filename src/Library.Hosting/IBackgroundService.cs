@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace Library.Hosting
 {
-    public interface INamedBackgroundService
+    public interface IBackgroundService
     {
-        string Name { get; set; }
+        string Name { get; }
     }
 }

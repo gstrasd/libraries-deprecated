@@ -31,6 +31,10 @@ namespace Library.Amazon
         private readonly SqsQueueClientConfiguration _configuration;
         private bool _disposed;
 
+        public SqsQueueClient(IAmazonSQS client, string queueUrl) : this(client, new SqsQueueClientConfiguration { QueueUrl = queueUrl })
+        {
+        }
+
         public SqsQueueClient(IAmazonSQS client, SqsQueueClientConfiguration configuration)
         {
             if (client == null) throw new ArgumentNullException(nameof(client));

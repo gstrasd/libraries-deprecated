@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -9,17 +10,39 @@ using Autofac.Builder;
 using Autofac.Core;
 using Autofac.Extensions.DependencyInjection;
 using Autofac.Features.OpenGenerics;
+using Library.Configuration;
 using Library.Dataflow;
 using Library.Platform.Queuing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using NamedParameter = Autofac.NamedParameter;
 
 namespace Library.Hosting
 {
     public static class ServiceCollectionExtensions
     {
-        public static void RegisterGenericQueueMessageWorkerFactory(this ContainerBuilder builder)
+        public static void RegisterMessageWorkers(this ContainerBuilder builder, IEnumerable<MessageWorkerConfiguration> configuration)
         {
+            foreach (var config in configuration)
+            {
+                if (!config.Enabled) return;
+                
+                var messageType = Type.GetType(config.MessageType);
+                if (messageType == null) return;
+
+                builder.Register(c =>
+                    {
+                        var openType = typeof(MessageWorker<>);
+                        var closedType = openType.MakeGenericType(messageType);
+                        var worker = c.Resolve(closedType, new NamedParameter("name", config.Name));
+
+                        return worker;
+                    })
+                    .SingleInstance()
+                    .As<IHostedService>();
+            }
+
             builder.RegisterGeneric((_, t, _) =>
                 {
                     var type = typeof(BufferBlock<>);
@@ -35,31 +58,10 @@ namespace Library.Hosting
             
             builder.RegisterGeneric((c, t, p) =>
                 {
-                    var client = c.Resolve<IQueueClient>(p);
-                    if (client == null) throw new NotImplementedException("To resolve a QueueMessageWorker<>, an IQueueClient registration must exist that accepts a named parameter with the name \"queue\" that specifies the message queue to work with.");
-
-                    var buffer = c.Resolve(typeof(ITargetBlock<>).MakeGenericType(t));
-                    var type = typeof(QueueMessageProducer<>);
-                    var generic = type.MakeGenericType(t);
-                    var producer = Activator.CreateInstance(generic, client, buffer, 1, default);
-
-                    return producer;
-                })
-                .IfNotRegistered(typeof(QueueMessageProducer<>))
-                .SingleInstance()
-                .As(typeof(QueueMessageProducer<>));
-
-            builder.RegisterGeneric((c, t, p) =>
-                {
-                    // Get queue parameter
-                    var parameters = p.ToList();
-                    var queue = parameters.FirstOrDefault(np => np is NamedParameter {Name: "queue"}) as NamedParameter;
-                    if (queue == null) throw new ArgumentNullException("parameters", "To resolve a queue message worker, the queue name must be supplied as a named parameter with the name \"queue\".");
-
                     // Resolve producer
-                    var openProducerType = typeof(QueueMessageProducer<>);
+                    var openProducerType = typeof(MessageProducer<>);
                     var genericProducerType = openProducerType.MakeGenericType(t);
-                    var producer = c.Resolve(genericProducerType, queue);
+                    var producer = c.Resolve(genericProducerType);
 
                     // Resolve consumer
                     var openConsumerType = typeof(MessageConsumer<>);
@@ -67,18 +69,15 @@ namespace Library.Hosting
                     var consumer = c.Resolve(genericConsumerType);
 
                     // Create worker
-                    var openWorkerType = typeof(QueueMessageWorker<>);
+                    var openWorkerType = typeof(MessageWorker<>);
                     var genericWorkerType = openWorkerType.MakeGenericType(t);
-                    var worker = Activator.CreateInstance(genericWorkerType, producer, consumer, default);
-
-                    // Set name of worker
-                    var name = (p.FirstOrDefault(param => param is NamedParameter np && np.Name == "name") as NamedParameter)?.Value as string;
-                    ((INamedBackgroundService) worker).Name = name;
+                    var name = (p.FirstOrDefault(param => param is NamedParameter { Name: "name" }) as NamedParameter)?.Value as string;
+                    var worker = Activator.CreateInstance(genericWorkerType, producer, consumer, name);
 
                     return worker;
                 })
-                .IfNotRegistered(typeof(QueueMessageWorker<>))
-                .As(typeof(QueueMessageWorker<>));
+                .IfNotRegistered(typeof(MessageWorker<>))
+                .As(typeof(MessageWorker<>));
         }
     }
 }
