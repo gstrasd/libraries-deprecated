@@ -70,7 +70,7 @@ namespace Library.Hosting
 
         public override Task StopAsync(CancellationToken cancellationToken)
         {
-            Console.WriteLine($"Stopping {Name}...");       // TODO: Change to _logger.Information()
+            Console.WriteLine($"Shutting down {Name}...");       // TODO: Change to _logger.Information()
 
             _execution.Cancel();
 
