@@ -22,7 +22,7 @@ using Library.Platform.Storage;
 
 namespace Library.Amazon
 {
-    public class S3DocumentStorageClient : IDocumentStorageClient, IDisposable
+    public class S3DocumentStorageClient : IStorageClient, IDisposable
     {
         private readonly IAmazonS3 _client;
         private readonly S3StorageClientConfiguration _configuration;
@@ -46,7 +46,7 @@ namespace Library.Amazon
 
         public string Store => _configuration.BucketName;
 
-        public async Task<bool> DocumentExistsAsync(string path, CancellationToken token = default)
+        public async Task<bool> ExistsAsync(string path, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -61,7 +61,7 @@ namespace Library.Amazon
             return response.KeyCount > 0;
         }
 
-        public async IAsyncEnumerable<string> ListDocumentsAsync(string path, [EnumeratorCancellation] CancellationToken token = default)
+        public async IAsyncEnumerable<string> ListAsync(string path, [EnumeratorCancellation] CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -86,7 +86,7 @@ namespace Library.Amazon
             while (response.IsTruncated);
         }
 
-        public Task<Stream> LoadDocumentAsync(string path, CancellationToken token = default)
+        public Task<Stream> LoadAsync(string path, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -100,7 +100,7 @@ namespace Library.Amazon
             return _client.GetObjectAsync(request, token).ContinueWith(t => t.Result?.ResponseStream, token);
         }
 
-        public Task SaveDocumentAsync(string path, Stream stream, CancellationToken token = default)
+        public Task SaveAsync(string path, Stream stream, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -120,7 +120,7 @@ namespace Library.Amazon
             return _client.PutObjectAsync(request, token);
         }
 
-        public Task DeleteDocumentAsync(string path, CancellationToken token = default)
+        public Task DeleteAsync(string path, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
@@ -135,7 +135,7 @@ namespace Library.Amazon
             return _client.DeleteObjectAsync(request, token);
         }
 
-        public async Task DeleteDocumentsAsync(string path, CancellationToken token = default)
+        public async Task DeletePathAsync(string path, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
