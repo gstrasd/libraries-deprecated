@@ -51,10 +51,12 @@ namespace Library.Hosting
         }
 
         public string Name { get; }
+        public event Action<IBackgroundService> OnStart;
+        public event Action<IBackgroundService> OnStop;
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            Console.WriteLine($"Starting {Name}...");       // TODO: Change to _logger.Information()
+            if (OnStart != null) Task.Run(() => OnStart(this));
 
             var source = CancellationTokenSource.CreateLinkedTokenSource(_execution.Token, stoppingToken);
             _executing = Task.CompletedTask;
@@ -70,8 +72,8 @@ namespace Library.Hosting
 
         public override Task StopAsync(CancellationToken cancellationToken)
         {
-            Console.WriteLine($"Shutting down {Name}...");       // TODO: Change to _logger.Information()
-
+            if (OnStop != null) Task.Run(() => OnStop(this));
+            
             _execution.Cancel();
 
             if (!_producers.Any() && !_consumers.Any()) return Task.CompletedTask;

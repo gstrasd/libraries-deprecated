@@ -40,6 +40,7 @@ namespace Library.Hosting
                         return worker;
                     })
                     .SingleInstance()
+                    .As<IBackgroundService>()
                     .As<IHostedService>();
             }
 
