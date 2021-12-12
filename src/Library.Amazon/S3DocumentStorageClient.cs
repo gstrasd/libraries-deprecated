@@ -22,13 +22,13 @@ using Library.Platform.Storage;
 
 namespace Library.Amazon
 {
-    public class S3StorageClient : IStorageClient, IDisposable
+    public class S3DocumentStorageClient : IDocumentStorageClient, IDisposable
     {
         private readonly IAmazonS3 _client;
         private readonly S3StorageClientConfiguration _configuration;
         private bool _disposed;
 
-        public S3StorageClient(IAmazonS3 client, S3StorageClientConfiguration configuration)
+        public S3DocumentStorageClient(IAmazonS3 client, S3StorageClientConfiguration configuration)
         {
             if (client == null) throw new ArgumentNullException(nameof(client));
             if (configuration == null) throw new ArgumentNullException(nameof(configuration));
@@ -39,24 +39,21 @@ namespace Library.Amazon
             _configuration = configuration;
         }
 
-        ~S3StorageClient()
+        ~S3DocumentStorageClient()
         {
             Dispose(false);
         }
 
-        public string Container => _configuration.BucketName;
+        public string Store => _configuration.BucketName;
 
-        public Task<bool> ObjectExistsAsync(string name, CancellationToken token = default) => ObjectExistsAsync(null, name, token);
-
-        public async Task<bool> ObjectExistsAsync(string scope, string name, CancellationToken token = default)
+        public async Task<bool> DocumentExistsAsync(string path, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
-            var key = BuildKey(scope, name);
             var request = new ListObjectsV2Request
             {
                 BucketName = _configuration.BucketName,
-                Prefix = key,
+                Prefix = path,
             };
 
             var response = await _client.ListObjectsV2Async(request, token);
@@ -64,13 +61,11 @@ namespace Library.Amazon
             return response.KeyCount > 0;
         }
 
-        public IAsyncEnumerable<(string Scope, string Name)> ListObjectsAsync(CancellationToken token = default) => ListObjectsAsync(null, token);
-
-        public async IAsyncEnumerable<(string Scope, string Name)> ListObjectsAsync(string scope, [EnumeratorCancellation] CancellationToken token = default)
+        public async IAsyncEnumerable<string> ListDocumentsAsync(string path, [EnumeratorCancellation] CancellationToken token = default)
         {
             EnsureNotDisposed();
-            var prefix = NormalizeScope(scope);
 
+            var prefix = NormalizePath(path);
             var request = new ListObjectsV2Request
             {
                 BucketName = _configuration.BucketName,
@@ -85,26 +80,17 @@ namespace Library.Amazon
                 foreach (var @object in response.S3Objects)
                 {
                     if (token.IsCancellationRequested) yield break;
-
-                    var key = @object.Key;
-                    if (key.Contains("/")) yield return (key[..(key.LastIndexOf("/") - 1)], key[key.LastIndexOf("/")..]);
-                    else yield return (String.Empty, key);
+                    yield return @object.Key;
                 }
-            } while (response.IsTruncated);
+            } 
+            while (response.IsTruncated);
         }
 
-        public Task<Stream> ReadObjectAsync(string name, CancellationToken token = default) => ReadObjectAsync(null, name, token);
-
-        public Task<Stream> ReadObjectAsync(string scope, string name, CancellationToken token = default)
+        public Task<Stream> LoadDocumentAsync(string path, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
-            if (name == null) throw new ArgumentNullException(nameof(name));
-
-            name = name.Trim();
-            if (name.Length == 0) throw new ArgumentException("No name was specified.", nameof(name));
-
-            var key = BuildKey(scope, name);
+            var key = NormalizePath(path);
             var request = new GetObjectRequest
             {
                 BucketName = _configuration.BucketName,
@@ -114,18 +100,11 @@ namespace Library.Amazon
             return _client.GetObjectAsync(request, token).ContinueWith(t => t.Result?.ResponseStream, token);
         }
 
-        public Task WriteObjectAsync(string name, Stream stream, CancellationToken token = default) => WriteObjectAsync(null, name, stream, token);
-
-        public Task WriteObjectAsync(string scope, string name, Stream stream, CancellationToken token = default)
+        public Task SaveDocumentAsync(string path, Stream stream, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
-            if (name == null) throw new ArgumentNullException(nameof(name));
-
-            name = name.Trim();
-            if (name.Length == 0) throw new ArgumentException("No name was specified.", nameof(name));
-
-            var key = BuildKey(scope, name);
+            var key = NormalizePath(path);
             var request = new PutObjectRequest
             {
                 BucketName = _configuration.BucketName,
@@ -141,54 +120,62 @@ namespace Library.Amazon
             return _client.PutObjectAsync(request, token);
         }
 
-        public Task DeleteObjectAsync(string name, CancellationToken token = default) => DeleteObjectAsync(null, name, token);
-
-        public Task DeleteObjectAsync(string scope, string name, CancellationToken token = default)
+        public Task DeleteDocumentAsync(string path, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
-            if (name == null) throw new ArgumentNullException(nameof(name));
-
-            name = name.Trim();
-            if (name.Length == 0) throw new ArgumentException("No name was specified.", nameof(name));
-
-            var key = BuildKey(scope, name);
+            var key = NormalizePath(path);
             var request = new DeleteObjectRequest
             {
                 BucketName = _configuration.BucketName,
-                Key = key
+                Key = key,
+                
             };
 
             return _client.DeleteObjectAsync(request, token);
         }
 
-        public async Task DeleteScopeAsync(string scope, CancellationToken token = default)
+        public async Task DeleteDocumentsAsync(string path, CancellationToken token = default)
         {
             EnsureNotDisposed();
 
-            var block = new ActionBlock<(string Scope, string Name)>(async o => await DeleteObjectAsync(o.Scope, o.Name, token));
-            var objects = ListObjectsAsync(scope, token);
+            var prefix = NormalizePath(path);
+            var listRequest = new ListObjectsV2Request
+            {
+                BucketName = _configuration.BucketName,
+                Prefix = prefix,
+            };
 
-            await foreach (var @object in objects.WithCancellation(token)) await block.SendAsync(@object, token);
-            block.Complete();
+            ListObjectsV2Response listResponse;
+            do
+            {
+                listResponse = await _client.ListObjectsV2Async(listRequest, token);
 
-            await block.Completion;
+                foreach (var @object in listResponse.S3Objects)
+                {
+                    if (token.IsCancellationRequested) break;
+
+                    var deleteRequest = new DeleteObjectRequest
+                    {
+                        BucketName = _configuration.BucketName,
+                        Key = @object.Key,
+                    };
+#pragma warning disable 4014
+                    _client.DeleteObjectAsync(deleteRequest, token);
+#pragma warning restore 4014
+                }
+            }
+            while (listResponse.IsTruncated);
         }
 
-        private static string BuildKey(string scope, string name)
+        private static string NormalizePath(string path)
         {
-            scope = NormalizeScope(scope);
-            return $"{scope}{name.Trim()}";
-        }
+            if (String.IsNullOrWhiteSpace(path)) path = String.Empty;
+            path = Regex.Replace(path.Trim(), @"[\\/]+", "/");
+            if (path == "/") path = String.Empty;
+            if (!path.EndsWith("/")) path += "/";
 
-        private static string NormalizeScope(string scope)
-        {
-            if (String.IsNullOrWhiteSpace(scope)) scope = String.Empty;
-            scope = Regex.Replace(scope.Trim(), @"[\\/]+", "/");
-            if (scope == "/") scope = String.Empty;
-            if (!scope.EndsWith("/")) scope += "/";
-
-            return scope;
+            return path;
         }
 
         public void Dispose()
@@ -199,7 +186,7 @@ namespace Library.Amazon
 
         private void EnsureNotDisposed()
         {
-            if (_disposed) ExceptionHelper.ThrowDisposed(nameof(S3StorageClient));
+            if (_disposed) ExceptionHelper.ThrowDisposed(nameof(S3DocumentStorageClient));
         }
 
         private void Dispose(bool disposing)

@@ -15,27 +15,27 @@ using Library.Platform.Storage;
 
 namespace Library.Amazon
 {
-    public class S3StorageManager : IStorageManager
+    public class S3DocumentStorageManager : IDocumentStorageManager
     {
         private static readonly Regex _bucketNamingRules = new Regex(@"[a-z\d][a-z\d\.-]{1,61}[a-z\d]", RegexOptions.Compiled | RegexOptions.Singleline);
         private static readonly Regex _ipAddress = new Regex(@"^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})$", RegexOptions.Compiled | RegexOptions.Singleline);
         private static readonly SemaphoreSlim _createSemaphore = new SemaphoreSlim(1, 1);       // TODO: Shouldn't this be: new SemaphoreSlim(0, 1);? What does initialCount mean?
         private readonly IAmazonS3 _client;
 
-        public S3StorageManager(IAmazonS3 client)
+        public S3DocumentStorageManager(IAmazonS3 client)
         {
             if (client == null) throw new ArgumentNullException(nameof(client));
             _client = client;
         }
 
-        public Task<bool> ContainerExistsAsync(string container, CancellationToken token = default)
+        public Task<bool> StoreExistsAsync(string container, CancellationToken token = default)
         {
             ValidateContainerName(container);
 
             return _client.DoesS3BucketExistAsync(container);
         }
 
-        public async Task CreateContainerAsync(string container, CancellationToken token = default)
+        public async Task CreateStoreAsync(string container, CancellationToken token = default)
         {
             ValidateContainerName(container);
 
@@ -64,14 +64,14 @@ namespace Library.Amazon
             }
         }
 
-        public Task DeleteContainerAsync(string container, CancellationToken token = default)
+        public Task DeleteStoreAsync(string container, CancellationToken token = default)
         {
             ValidateContainerName(container);
 
             return _client.DeleteBucketAsync(container, token);
         }
 
-        public async Task PurgeContainerAsync(string container, CancellationToken token = default)
+        public async Task PurgeStoreAsync(string container, CancellationToken token = default)
         {
             ValidateContainerName(container);
 
@@ -100,7 +100,7 @@ namespace Library.Amazon
             await block.Completion;
         }
 
-        public async IAsyncEnumerable<string> ListContainersAsync([EnumeratorCancellation] CancellationToken token = default)
+        public async IAsyncEnumerable<string> ListStoresAsync([EnumeratorCancellation] CancellationToken token = default)
         {
             var response = await _client.ListBucketsAsync(token);
 
