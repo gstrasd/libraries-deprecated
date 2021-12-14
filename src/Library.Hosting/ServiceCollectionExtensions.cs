@@ -22,6 +22,30 @@ namespace Library.Hosting
 {
     public static class ServiceCollectionExtensions
     {
+        public static void RegisterQueueMessageProducers(this ContainerBuilder builder)
+        {
+            builder.RegisterGeneric((c, t) =>
+                {
+                    // Resolve queue client
+                    var client = c.Resolve<IQueueClient>();
+
+                    // Resolve buffer
+                    var openBufferType = typeof(ITargetBlock<>);
+                    var genericBufferType = openBufferType.MakeGenericType(t);
+                    var buffer = c.Resolve(genericBufferType);
+
+                    // Create producer
+                    var openProducerType = typeof(QueueMessageProducer<>);
+                    var genericProducerType = openProducerType.MakeGenericType(t);
+                    var producer = Activator.CreateInstance(genericProducerType, client, buffer);
+
+                    return producer;
+                })
+                .IfNotRegistered(typeof(MessageProducer<>))
+                .SingleInstance()
+                .As(typeof(MessageProducer<>));
+        }
+
         public static void RegisterMessageWorkers(this ContainerBuilder builder, IEnumerable<MessageWorkerConfiguration> configuration)
         {
             foreach (var config in configuration)
@@ -44,7 +68,7 @@ namespace Library.Hosting
                     .As<IHostedService>();
             }
 
-            builder.RegisterGeneric((_, t, _) =>
+            builder.RegisterGeneric((_, t) =>
                 {
                     var type = typeof(BufferBlock<>);
                     var generic = type.MakeGenericType(t);

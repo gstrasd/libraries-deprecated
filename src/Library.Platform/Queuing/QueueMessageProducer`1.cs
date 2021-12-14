@@ -13,7 +13,7 @@ namespace Library.Platform.Queuing
         private readonly IQueueClient _client;
         private readonly int _messageCount;
 
-        public QueueMessageProducer(IQueueClient client, ITargetBlock<T> buffer, int messageCount = 1, CancellationToken token = default) : base(buffer, token)
+        public QueueMessageProducer(IQueueClient client, ITargetBlock<T> buffer, int messageCount = 1) : base(buffer)
         {
             if (client == null) throw new ArgumentNullException(nameof(client));
             if (messageCount <= 0) throw new ArgumentOutOfRangeException(nameof(messageCount), "Argument must be a positive, non-zero value.");
@@ -24,7 +24,7 @@ namespace Library.Platform.Queuing
 
         protected override IAsyncEnumerable<T> ProduceMessagesAsync(CancellationToken token = default)
         {
-            return _client.ReadMessagesAsync<T>(_messageCount, token);
+            return _client.ReadMessageAsync<T>(_messageCount, token);
         }
     }
 }
