@@ -8,11 +8,11 @@ namespace Library.Amazon
 {
     public static class ConfigurationExtensions
     {
-        public static SqsQueueClientConfiguration GetSqsQueueClientConfiguration(this IConfiguration configuration, string key)
+        public static List<SqsQueueConfiguration> GetSqsQueueClientConfiguration(this IConfiguration configuration, string key)
         {
             if (configuration == null) throw new ArgumentNullException(nameof(configuration));
 
-            return configuration.Bind<SqsQueueClientConfiguration>(key);
+            return configuration.Bind<List<SqsQueueConfiguration>>(key);
         }
     }
 }

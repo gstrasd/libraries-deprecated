@@ -6,178 +6,233 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
+using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Amazon.Extensions.NETCore.Setup;
-using Amazon.Runtime.SharedInterfaces;
+using Amazon.DynamoDBv2;
 using Amazon.SQS;
 using Amazon.SQS.Model;
-using Library.Amazon.Resources;
 using Library.Dataflow;
 using Library.Platform.Queuing;
 
 namespace Library.Amazon
 {
-    public class SqsQueueClient : IQueueClient, IObservable<string>, IObservable<IMessage>, IDisposable
+    public class SqsQueueClient : IQueueClient, IDisposable
     {
-        private readonly ObserverManager<string> _messageObserverManager = new();
-        private readonly ObserverManager<IMessage> _typedMessageObserverManager = new();
+        private static readonly Dictionary<Type, string> _queueTypes = new();
         private readonly IAmazonSQS _client;
-        private readonly SqsQueueClientConfiguration _configuration;
+        private readonly Dictionary<string, SqsQueueConfiguration> _configuration;
         private bool _disposed;
 
-        public SqsQueueClient(IAmazonSQS client, string queueUrl) : this(client, new SqsQueueClientConfiguration { QueueUrl = queueUrl })
-        {
-        }
-
-        public SqsQueueClient(IAmazonSQS client, SqsQueueClientConfiguration configuration)
+        public SqsQueueClient(IAmazonSQS client, List<SqsQueueConfiguration> configuration)
         {
             if (client == null) throw new ArgumentNullException(nameof(client));
             if (configuration == null) throw new ArgumentNullException(nameof(configuration));
-            if (configuration.QueueUrl == null) throw new ArgumentNullException(nameof(configuration));
-            if (configuration.QueueUrl.Trim().Length == 0) throw new ArgumentException("No queue name was provided.", nameof(configuration));
 
             _client = client;
-            _configuration = configuration;
-            QueueName = _configuration.QueueUrl[(_configuration.QueueUrl.LastIndexOf("/", StringComparison.Ordinal) + 1)..];
+            _configuration = configuration.ToDictionary(c => c.QueueName, c => c);
         }
-
-        public IDisposable Subscribe(IObserver<string> observer) => _messageObserverManager.Subscribe(observer);
-
-        public IDisposable Subscribe(IObserver<IMessage> observer) => _typedMessageObserverManager.Subscribe(observer);
 
         ~SqsQueueClient()
         {
             Dispose(false);
         }
 
-        public string QueueName { get; }
-
-        public async Task WriteRawMessageAsync(string message, CancellationToken token = default)
+        public async IAsyncEnumerable<string> ReadMessageAsync(string queueName, int messageCount = 1, [EnumeratorCancellation] CancellationToken token = default)
         {
             EnsureNotDisposed();
 
-            if (message == null) throw new ArgumentNullException(nameof(message));
+            if (queueName == null) throw new ArgumentNullException(nameof(queueName));
 
-            await _client.SendMessageAsync(_configuration.QueueUrl, message, token);
-        }
-
-        public async Task WriteMessageAsync(string message, CancellationToken token = default)
-        {
-            EnsureNotDisposed();
-
-            if (message == null) throw new ArgumentNullException(nameof(message));
-
-            var bytes = Encoding.UTF8.GetBytes(message);
-            var base64String = Convert.ToBase64String(bytes);
-
-            await WriteRawMessageAsync(base64String, token);
-        }
-
-        public async Task WriteMessageAsync<TMessage>(TMessage message, CancellationToken token = default) where TMessage : IMessage
-        {
-            EnsureNotDisposed();
-
-            if (message == null) throw new ArgumentNullException(nameof(message));
-
-            var json = JsonSerializer.Serialize(message);
-            var bytes = Encoding.UTF8.GetBytes(json);
-            var base64String = Convert.ToBase64String(bytes);
-
-            await WriteRawMessageAsync(base64String, token);
-        }
-
-        public async IAsyncEnumerable<string> ReadRawMessageAsync(int messageCount = 1, [EnumeratorCancellation] CancellationToken token = default)
-        {
-            EnsureNotDisposed();
+            if (!_configuration.TryGetValue(queueName, out var configuration))
+            {
+                throw new QueueClientException("Unable to locate queue url. Verify that this queue is properly configured.", queueName);
+            }
 
             var request = new ReceiveMessageRequest
             {
-                QueueUrl = _configuration.QueueUrl,
+                QueueUrl = configuration.QueueUrl,
                 MaxNumberOfMessages = messageCount,
-                WaitTimeSeconds = _configuration.WaitTimeSeconds,
-                VisibilityTimeout = _configuration.VisibilityTimeout
+                WaitTimeSeconds = configuration.WaitTimeSeconds,
+                VisibilityTimeout = configuration.VisibilityTimeout
             };
 
-            var response = await _client.ReceiveMessageAsync(request, token);
+            ReceiveMessageResponse response;
+            try
+            {
+                response = await _client.ReceiveMessageAsync(request, token).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                throw new QueueClientException("An error occurred while reading a queue message.", queueName, e);
+            }
 
             foreach (var message in response.Messages)
             {
                 if (token.IsCancellationRequested) break;
 
-                yield return message.Body;
-
-                var delete = new DeleteMessageRequest
-                {
-                    QueueUrl = _configuration.QueueUrl,
-                    ReceiptHandle = message.ReceiptHandle
-                };
-
-                await _client.DeleteMessageAsync(delete, token);
-            }
-        }
-
-        public async IAsyncEnumerable<string> ReadMessagesAsync(int messageCount = 1, [EnumeratorCancellation] CancellationToken token = default)
-        {
-            EnsureNotDisposed();
-
-            var messages = ReadRawMessageAsync(messageCount, token);
-
-            await foreach (var message in messages.WithCancellation(token))
-            {
-                if (token.IsCancellationRequested) break;
-
                 string decodedMessage;
-
                 try
                 {
-                    var bytes = Convert.FromBase64String(message);
+                    var bytes = Convert.FromBase64String(message.Body);
                     decodedMessage = Encoding.UTF8.GetString(bytes);
                 }
                 catch (Exception e)
                 {
-                    var error = new QueueClientReadMessageException(message, $"An error occurred while reading the body of a message read from the {QueueName} queue.", e);
-                    await _messageObserverManager.NotifyErrorAsync(error);
-                    continue;
+                   throw new QueueClientException("An error occurred while decoding a queue message.", queueName, e);
                 }
 
-                await _messageObserverManager.NotifyAsync(decodedMessage);
                 yield return decodedMessage;
-            }
-        }
 
-        public async IAsyncEnumerable<TMessage> ReadMessagesAsync<TMessage>(int messageCount = 1, [EnumeratorCancellation] CancellationToken token = default) where TMessage : IMessage
-        {
-            EnsureNotDisposed();
-
-            var messages = ReadRawMessageAsync(messageCount, token);
-
-            await foreach (var message in messages.WithCancellation(token))
-            {
-                if (token.IsCancellationRequested) break;
-
-                TMessage typedMessage;
+                var delete = new DeleteMessageRequest
+                {
+                    QueueUrl = queueName,
+                    ReceiptHandle = message.ReceiptHandle,
+                };
 
                 try
                 {
-                    var bytes = Convert.FromBase64String(message);
-                    var json = Encoding.UTF8.GetString(bytes);
-                    typedMessage = JsonSerializer.Deserialize<TMessage>(json);
+                    await _client.DeleteMessageAsync(delete, token).ConfigureAwait(false);
                 }
                 catch (Exception e)
                 {
-                    var error = new QueueClientReadMessageException(message, $"An error occurred while deserializing the body of a message read from the {QueueName} queue.", e);
-                    await _typedMessageObserverManager.NotifyErrorAsync(error);
-                    continue;
+                    throw new QueueClientException("An error occurred while deleting a queue message.", queueName, e);
+                }
+            }
+        }
+
+        public async IAsyncEnumerable<T> ReadMessageAsync<T>(int messageCount = 1, [EnumeratorCancellation] CancellationToken token = default) where T : IMessage
+        {
+            EnsureNotDisposed();
+
+            var type = typeof(T);
+            if (!_queueTypes.TryGetValue(type, out var queueName))
+            {
+                queueName = type.GetCustomAttribute<QueueNameAttribute>()?.QueueName;
+                if (queueName == null) throw new QueueClientException("Unable to identify name of queue. Verify that it has a QueueName attribute.", null);
+
+                _queueTypes.TryAdd(type, queueName);
+            }
+
+            if (!_configuration.TryGetValue(queueName!, out var configuration))
+            {
+                throw new QueueClientException("Unable to locate queue url. Verify that this queue is properly configured.", queueName!);
+            }
+
+            var request = new ReceiveMessageRequest
+            {
+                QueueUrl = configuration.QueueUrl,
+                MaxNumberOfMessages = messageCount,
+                WaitTimeSeconds = configuration.WaitTimeSeconds,
+                VisibilityTimeout = configuration.VisibilityTimeout
+            };
+
+            ReceiveMessageResponse response;
+            try
+            {
+                response = await _client.ReceiveMessageAsync(request, token).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                throw new QueueClientException("An error occurred while reading a queue message.", queueName!, e);
+            }
+
+            foreach (var message in response.Messages)
+            {
+                if (token.IsCancellationRequested) break;
+
+                T typedMessage;
+                try
+                {
+                    var bytes = Convert.FromBase64String(message.Body);
+                    string decodedMessage = Encoding.UTF8.GetString(bytes);
+                    typedMessage = JsonSerializer.Deserialize<T>(decodedMessage)!;
+                }
+                catch (Exception e)
+                {
+                    throw new QueueClientException("An error occurred while deserializing a queue message.", queueName, e);
                 }
 
-                await _typedMessageObserverManager.NotifyAsync(typedMessage);
+                typedMessage.MessageId = message.MessageId;
+                typedMessage.Receipt = message.ReceiptHandle;
+
                 yield return typedMessage;
+            }
+        }
+
+        public Task WriteMessageAsync(string queueName, string message, CancellationToken token = default)
+        {
+            EnsureNotDisposed();
+
+            if (queueName == null) throw new ArgumentNullException(nameof(queueName));
+            if (message == null) throw new ArgumentNullException(nameof(message));
+
+            if (!_configuration.TryGetValue(queueName, out var configuration))
+            {
+                throw new QueueClientException("Unable to locate queue url. Verify that this queue is properly configured.", queueName!);
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(message);
+            var base64String = Convert.ToBase64String(bytes);
+
+            return _client.SendMessageAsync(configuration.QueueUrl, base64String, token);
+        }
+
+        public Task WriteMessageAsync<T>(T message, CancellationToken token = default) where T : IMessage
+        {
+            EnsureNotDisposed();
+
+            if (message == null) throw new ArgumentNullException(nameof(message));
+
+            var type = typeof(T);
+            if (!_queueTypes.TryGetValue(type, out var queueName))
+            {
+                queueName = type.GetCustomAttribute<QueueNameAttribute>()?.QueueName;
+                if (queueName == null) throw new QueueClientException("Unable to identify name of queue. Verify that it has a QueueName attribute.", null);
+
+                _queueTypes.TryAdd(type, queueName);
+            }
+
+            if (!_configuration.TryGetValue(queueName, out var configuration))
+            {
+                throw new QueueClientException("Unable to locate queue url. Verify that this queue is properly configured.", queueName!);
+            }
+
+            var json = JsonSerializer.Serialize(message);
+            var bytes = Encoding.UTF8.GetBytes(json);
+            var base64String = Convert.ToBase64String(bytes);
+
+            return _client.SendMessageAsync(configuration.QueueUrl, base64String, token);
+        }
+
+        public async Task DeleteMessageAsync(string queueName, string receipt, CancellationToken token = default)
+        {
+            EnsureNotDisposed();
+
+            if (queueName == null) throw new ArgumentNullException(nameof(queueName));
+            if (receipt == null) throw new ArgumentNullException(nameof(receipt));
+
+            if (!_configuration.TryGetValue(queueName, out var configuration))
+            {
+                throw new QueueClientException("Unable to locate queue url. Verify that this queue is properly configured.", queueName!);
+            }
+
+            var delete = new DeleteMessageRequest
+            {
+                QueueUrl = queueName,
+                ReceiptHandle = receipt,
+            };
+
+            try
+            {
+                await _client.DeleteMessageAsync(delete, token).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                throw new QueueClientException("An error occurred while deleting a queue message.", queueName, e);
             }
         }
 
@@ -192,7 +247,7 @@ namespace Library.Amazon
             if (_disposed) ExceptionHelper.ThrowDisposed(nameof(SqsQueueClient));
         }
 
-        private void Dispose(bool disposing)        // TODO: Implement DisposeAsync
+        private void Dispose(bool disposing)
         {
             if (_disposed) return;
 
@@ -200,11 +255,6 @@ namespace Library.Amazon
             {
                 _client?.Dispose();
             }
-
-            Task.WhenAll(
-                _messageObserverManager.NotifyCompleteAsync(),
-                _typedMessageObserverManager.NotifyCompleteAsync()
-            );
 
             _disposed = true;
         }
